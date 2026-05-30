@@ -1,0 +1,15 @@
+# --- Build artifacts ---
+build/
+dist/
+build_env/
+*.spec
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# --- Local test launcher (kept off the repo) ---
+Launch_*.bat
