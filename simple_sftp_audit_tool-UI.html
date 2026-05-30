@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Simple SFTP Audit Tool</title>
+<style>
+/* ---- fonts (bundled siblings) ---- */
+@font-face { font-family:"Sora"; font-weight:400; src:url("fonts/Sora-Regular.woff2") format("woff2"); font-display:swap; }
+@font-face { font-family:"Sora"; font-weight:600; src:url("fonts/Sora-SemiBold.woff2") format("woff2"); font-display:swap; }
+@font-face { font-family:"Sora"; font-weight:700; src:url("fonts/Sora-Bold.woff2") format("woff2"); font-display:swap; }
+@font-face { font-family:"JetBrains Mono"; font-weight:400; src:url("fonts/JetBrainsMono-Regular.woff2") format("woff2"); font-display:swap; }
+
+/* ---- JDE Dark Teal tokens (runbook section 03) ---- */
+:root{
+  --bg:#0a0e14; --bg-2:#0e131c; --panel:#121823; --panel-2:#161d2a;
+  --border:#20293a; --border-2:#2b3650;
+  --text:#dfe7f2; --text-dim:#8a98b0; --text-faint:#5a6678;
+  --accent:#4dd6c1; --accent-2:#2bb6a3; --glow:rgba(77,214,193,0.35);
+  --amber:#f0b860; --red:#ff6b7a; --green:#5ce39b; --blue:#6db3ff; --purple:#b48cff;
+  --radius:14px; --radius-sm:9px;
+}
+*{ box-sizing:border-box; }
+html,body{ margin:0; height:100%; }
+body{
+  font-family:"Sora", system-ui, sans-serif; color:var(--text); font-weight:400; font-size:14px;
+  background:
+    radial-gradient(900px 520px at 12% -8%, rgba(77,214,193,0.10), transparent 60%),
+    radial-gradient(820px 520px at 100% 0%, rgba(109,179,255,0.07), transparent 55%),
+    var(--bg);
+  -webkit-font-smoothing:antialiased;
+}
+::selection{ background:rgba(77,214,193,0.3); }
+
+/* scrollbar */
+::-webkit-scrollbar{ width:10px; }
+::-webkit-scrollbar-track{ background:transparent; }
+::-webkit-scrollbar-thumb{ background:var(--border-2); border-radius:8px; }
+::-webkit-scrollbar-thumb:hover{ background:#3a4666; }
+
+.wrap{ max-width:980px; margin:0 auto; padding:22px 26px 40px; }
+
+/* ---- header ---- */
+header{ display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:18px; }
+h1{ font-size:24px; font-weight:700; margin:0; letter-spacing:-0.01em; }
+.meta{ text-align:right; font-family:"JetBrains Mono",monospace; line-height:1.5; }
+.meta .by{ color:var(--text-dim); font-size:11px; }
+.meta .ver{ color:var(--text-faint); font-size:10.5px; }
+.meta a{ color:var(--accent); font-size:10.5px; text-decoration:none; }
+.meta a:hover{ text-decoration:underline; }
+
+/* ---- input panel ---- */
+.panel{
+  background:linear-gradient(180deg,var(--panel),var(--bg-2));
+  border:1px solid var(--border); border-radius:var(--radius);
+  padding:16px 18px; margin-bottom:18px;
+}
+.inrow{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+.field{ display:flex; align-items:center; gap:9px; }
+.field label{ font-size:13px; color:var(--text-dim); }
+input[type=text]{
+  font-family:"JetBrains Mono",monospace; font-size:14px;
+  background:var(--panel-2); color:var(--text); border:1px solid var(--border-2);
+  border-radius:var(--radius-sm); padding:9px 11px; outline:none;
+  transition:border-color .15s, box-shadow .15s;
+}
+input[type=text]:focus{ border-color:var(--accent); box-shadow:0 0 0 3px rgba(77,214,193,0.15); }
+#host{ width:320px; }
+#port{ width:74px; text-align:center; }
+
+button{ font-family:"Sora", system-ui, sans-serif; cursor:pointer; border:none; border-radius:var(--radius-sm); transition:transform .15s, box-shadow .15s, border-color .15s, background .15s; }
+.btn-primary{
+  background:linear-gradient(180deg,var(--accent),var(--accent-2)); color:#042b27;
+  font-weight:700; font-size:14px; padding:10px 20px; box-shadow:0 0 0 rgba(77,214,193,0);
+}
+.btn-primary:hover{ box-shadow:0 4px 18px var(--glow); transform:translateY(-1px); }
+.btn-primary:disabled{ background:#33414e; color:#7d8aa0; cursor:default; box-shadow:none; transform:none; }
+.btn-ghost{
+  background:transparent; color:var(--text-dim); border:1px solid var(--border-2);
+  font-size:13px; padding:9px 15px;
+}
+.btn-ghost:hover{ border-color:var(--accent); color:var(--text); transform:translateY(-1px); }
+
+/* ---- cards ---- */
+.card{
+  background:var(--panel-2); border:1px solid var(--border);
+  border-left:3px solid var(--border-2); border-radius:var(--radius);
+  padding:15px 17px; margin-bottom:14px;
+}
+.card.teal{ border-left-color:var(--accent); }
+.card.green{ border-left-color:var(--green); background:#13241c; }
+.card.red{ border-left-color:var(--red); background:#241519; }
+.card.blue{ border-left-color:var(--blue); background:#121c28; }
+.card h2{ font-size:15px; font-weight:600; margin:0 0 11px; display:flex; align-items:center; gap:8px; }
+.card.green h2{ color:var(--green); }
+.card.red h2{ color:var(--red); }
+.card.blue h2{ color:var(--blue); }
+
+/* server info grid */
+.kv{ display:flex; gap:10px; margin-bottom:5px; font-size:13px; }
+.kv .k{ color:var(--text-faint); width:108px; flex:none; }
+.kv .v{ font-family:"JetBrains Mono",monospace; }
+.kv .v.ok{ color:var(--green); }
+
+/* checklist + lists */
+.li{ display:flex; gap:9px; align-items:flex-start; padding:3px 0; font-size:13px; line-height:1.4; }
+.li .ico{ flex:none; width:16px; text-align:center; font-weight:700; }
+.s-good{ color:var(--green); } .s-bad{ color:var(--red); } .s-warn{ color:var(--amber); }
+.advisory{ color:var(--amber); }
+.rec{ color:#9fd0ff; }
+
+/* algorithm rows */
+.alg{ display:flex; align-items:baseline; gap:9px; padding:3px 0; flex-wrap:wrap; }
+.dot{ flex:none; font-size:11px; line-height:1.5; }
+.alg .name{ font-family:"JetBrains Mono",monospace; font-size:13px; }
+.alg .size{ color:var(--text-faint); font-family:"JetBrains Mono",monospace; font-size:12px; }
+.alg .reason{ color:var(--text-dim); font-size:12px; }
+
+/* fingerprints */
+.fp{ font-family:"JetBrains Mono",monospace; font-size:12px; color:var(--text-dim); word-break:break-all; padding:2px 0; }
+
+/* ---- grade ---- */
+.gradewrap{ text-align:center; margin:6px 0 16px; }
+.gradebox{
+  display:inline-block; min-width:120px; padding:14px 28px; border-radius:var(--radius);
+  font-size:40px; font-weight:700; color:#06231f; letter-spacing:-0.02em;
+}
+.summary{ display:flex; justify-content:center; gap:22px; margin-top:12px; font-size:13px; }
+.summary span{ display:inline-flex; align-items:center; gap:6px; }
+
+.resulthead{ font-size:17px; font-weight:600; margin:4px 0 4px; }
+
+/* ---- welcome / states ---- */
+.center{ text-align:center; color:var(--text-faint); padding:60px 20px; }
+.center .big{ font-size:15px; color:var(--text-dim); }
+.legend{ display:flex; justify-content:center; gap:26px; margin-top:22px; font-size:13px; }
+.legend span{ display:inline-flex; align-items:center; gap:7px; }
+.err-title{ font-size:18px; font-weight:700; color:var(--red); }
+.err-sub{ color:var(--text-dim); font-size:13px; margin-top:10px; }
+
+.scanning{ text-align:center; padding:64px 20px; }
+.spinner{
+  width:34px; height:34px; margin:0 auto 16px; border-radius:50%;
+  border:3px solid var(--border-2); border-top-color:var(--accent);
+  animation:spin .8s linear infinite;
+}
+@keyframes spin{ to{ transform:rotate(360deg); } }
+.scanning .t{ color:var(--accent); font-size:15px; }
+
+/* fade-in for results */
+.fade{ animation:fade .25s ease both; }
+@keyframes fade{ from{ opacity:0; transform:translateY(6px); } to{ opacity:1; transform:none; } }
+
+.copyrow{ text-align:center; margin-top:6px; }
+.toast{
+  position:fixed; left:50%; bottom:26px; transform:translateX(-50%) translateY(20px);
+  background:var(--panel-2); border:1px solid var(--accent); color:var(--text);
+  padding:10px 18px; border-radius:999px; font-size:13px; opacity:0; pointer-events:none;
+  transition:opacity .2s, transform .2s;
+}
+.toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Simple SFTP Audit Tool</h1>
+    <div class="meta">
+      <div class="by">by JDE-Projects</div>
+      <div class="ver" id="ver">Powered by ssh-audit</div>
+      <a href="#" id="ghlink">github.com/jtesta/ssh-audit</a>
+    </div>
+  </header>
+
+  <div class="panel">
+    <div class="inrow">
+      <div class="field">
+        <label for="host">Host / IP</label>
+        <input type="text" id="host" placeholder="example.com or 10.0.0.5" autocomplete="off" spellcheck="false">
+      </div>
+      <div class="field">
+        <label for="port">Port</label>
+        <input type="text" id="port" value="22" autocomplete="off" spellcheck="false">
+      </div>
+      <button class="btn-primary" id="run">Run Audit</button>
+      <button class="btn-ghost" id="clear">Clear</button>
+    </div>
+  </div>
+
+  <div id="results"></div>
+</div>
+
+<div class="toast" id="toast">Report copied to clipboard</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const results = $("results");
+let busy = false;
+let lastReport = "";
+
+const DOT = "\u25CF";
+function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+/* ---------- states ---------- */
+function showWelcome(){
+  results.innerHTML = `
+    <div class="center fade">
+      <div class="big">Enter a hostname or IP address above to audit an SFTP server.</div>
+      <div class="legend">
+        <span><span style="color:var(--green)">${DOT}</span> Secure</span>
+        <span><span style="color:var(--amber)">${DOT}</span> Warnings</span>
+        <span><span style="color:var(--red)">${DOT}</span> Failures</span>
+      </div>
+    </div>`;
+}
+function showScanning(host, port){
+  results.innerHTML = `
+    <div class="scanning fade">
+      <div class="spinner"></div>
+      <div class="t">Scanning ${esc(host)}:${esc(port)}\u2026</div>
+    </div>`;
+}
+function showError(title, sub){
+  results.innerHTML = `
+    <div class="center fade">
+      <div class="err-title">${esc(title)}</div>
+      ${sub ? `<div class="err-sub">${esc(sub)}</div>` : ""}
+    </div>`;
+}
+
+/* ---------- render result ---------- */
+function statusClass(s){ return s==="fail"||s==="bad" ? "s-bad" : s==="warn" ? "s-warn" : "s-good"; }
+function statusIcon(s){ return s==="fail"||s==="bad" ? "\u2717" : s==="warn" ? "\u26A0" : "\u2713"; }
+function dotColor(s){ return s==="fail" ? "var(--red)" : s==="warn" ? "var(--amber)" : "var(--green)"; }
+
+function algRows(list){
+  return list.map(a => {
+    const size = a.key_size ? ` <span class="size">(${esc(a.key_size)}-bit)</span>` : "";
+    const reason = a.reason ? ` <span class="reason">\u2014 ${esc(a.reason)}</span>` : "";
+    return `<div class="alg"><span class="dot" style="color:${dotColor(a.status)}">${DOT}</span>`
+         + `<span class="name" style="color:${dotColor(a.status)}">${esc(a.name)}</span>${size}${reason}</div>`;
+  }).join("");
+}
+
+function render(r){
+  const c = r.counts;
+  let html = `<div class="fade">`;
+  html += `<div class="resulthead">Audit complete for ${esc(r.host)}:${esc(r.port)}</div>`;
+
+  // grade + summary
+  html += `<div class="gradewrap">
+      <div class="gradebox" style="background:${esc(r.grade_color)}">${esc(r.grade)}</div>
+      <div class="summary">
+        <span><span style="color:var(--red)">${DOT}</span> ${c.fails} Failures</span>
+        <span><span style="color:var(--amber)">${DOT}</span> ${c.warns} Warnings</span>
+        <span><span style="color:var(--green)">${DOT}</span> ${c.goods} Secure</span>
+      </div>
+    </div>`;
+
+  // server info
+  if(r.software || r.os || (r.compression && r.compression.length)){
+    html += `<div class="card teal"><h2>Server Information</h2>`;
+    if(r.software) html += `<div class="kv"><span class="k">Software</span><span class="v ok">${esc(r.software)}</span></div>`;
+    if(r.os) html += `<div class="kv"><span class="k">OS</span><span class="v">${esc(r.os)}</span></div>`;
+    if(r.compression && r.compression.length) html += `<div class="kv"><span class="k">Compression</span><span class="v">${esc(r.compression.join(", "))}</span></div>`;
+    html += `</div>`;
+  }
+
+  // checklist
+  if(r.checklist && r.checklist.length){
+    html += `<div class="card green"><h2>Security Checklist</h2>`;
+    r.checklist.forEach(it => {
+      html += `<div class="li"><span class="ico ${statusClass(it.status)}">${statusIcon(it.status)}</span>`
+            + `<span class="${statusClass(it.status)}">${esc(it.text)}</span></div>`;
+    });
+    html += `</div>`;
+  }
+
+  // advisories
+  if(r.security_issues && r.security_issues.length){
+    html += `<div class="card red"><h2>Security Advisories</h2>`;
+    r.security_issues.forEach(s => html += `<div class="li"><span class="ico advisory">\u2022</span><span class="advisory">${esc(s)}</span></div>`);
+    html += `</div>`;
+  }
+
+  // algorithm sections
+  const secs = [["Key Exchange Algorithms","kex"],["Host Key Algorithms","key"],
+                ["Encryption Ciphers","enc"],["Message Authentication Codes (MAC)","mac"]];
+  secs.forEach(([title,key]) => {
+    const list = r.sections[key];
+    if(list && list.length) html += `<div class="card"><h2>${title}</h2>${algRows(list)}</div>`;
+  });
+
+  // recommendations
+  if(r.recommendations && r.recommendations.length){
+    html += `<div class="card blue"><h2>Recommendations</h2>`;
+    r.recommendations.forEach(x => html += `<div class="li"><span class="ico rec">\u2022</span><span class="rec">${esc(x)}</span></div>`);
+    html += `</div>`;
+  }
+
+  // fingerprints
+  if(r.fingerprints && r.fingerprints.length){
+    html += `<div class="card"><h2>Host Key Fingerprints</h2>`;
+    r.fingerprints.forEach(f => html += `<div class="fp">${esc(f)}</div>`);
+    html += `</div>`;
+  }
+
+  html += `<div class="copyrow"><button class="btn-ghost" id="copy">Copy Report to Clipboard</button></div>`;
+  html += `</div>`;
+  results.innerHTML = html;
+
+  lastReport = buildReport(r);
+  $("copy").addEventListener("click", copyReport);
+}
+
+/* ---------- text report ---------- */
+function buildReport(r){
+  const L = [];
+  L.push("SSH SECURITY AUDIT REPORT");
+  L.push("Simple SFTP Audit Tool by JDE-Projects");
+  L.push("=".repeat(50));
+  L.push(`Host: ${r.host}:${r.port}`);
+  L.push(`Grade: ${r.grade}`);
+  L.push(`Summary: ${r.counts.fails} failures, ${r.counts.warns} warnings, ${r.counts.goods} secure`);
+  L.push("");
+  if(r.checklist && r.checklist.length){
+    L.push("SECURITY CHECKLIST"); L.push("-".repeat(18));
+    r.checklist.forEach(it => L.push(`  ${statusIcon(it.status)} ${it.text}`));
+    L.push("");
+  }
+  if(r.software || r.os){
+    L.push("SERVER INFORMATION"); L.push("-".repeat(18));
+    if(r.software) L.push(`  Software: ${r.software}`);
+    if(r.os) L.push(`  OS: ${r.os}`);
+    if(r.compression && r.compression.length) L.push(`  Compression: ${r.compression.join(", ")}`);
+    L.push("");
+  }
+  if(r.security_issues && r.security_issues.length){
+    L.push("SECURITY ADVISORIES"); L.push("-".repeat(19));
+    r.security_issues.forEach(s => L.push(`  - ${s}`));
+    L.push("");
+  }
+  const secs = [["KEY EXCHANGE ALGORITHMS","kex"],["HOST KEY ALGORITHMS","key"],
+                ["ENCRYPTION CIPHERS","enc"],["MESSAGE AUTHENTICATION CODES","mac"]];
+  secs.forEach(([title,key]) => {
+    const list = r.sections[key];
+    if(list && list.length){
+      L.push(title); L.push("-".repeat(title.length));
+      list.forEach(a => {
+        const ic = a.status==="fail" ? "[FAIL]" : a.status==="warn" ? "[WARN]" : "[ OK ]";
+        const size = a.key_size ? ` (${a.key_size}-bit)` : "";
+        L.push(`  ${ic} ${a.name}${size}`);
+        if(a.reason) L.push(`         ${a.reason}`);
+      });
+      L.push("");
+    }
+  });
+  if(r.fingerprints && r.fingerprints.length){
+    L.push("HOST KEY FINGERPRINTS"); L.push("-".repeat(21));
+    r.fingerprints.forEach(f => L.push(`  ${f}`));
+  }
+  return L.join("\n");
+}
+function copyReport(){
+  const done = () => { const t=$("toast"); t.classList.add("show"); setTimeout(()=>t.classList.remove("show"),1600); };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(lastReport).then(done).catch(fallbackCopy);
+  } else { fallbackCopy(); }
+  function fallbackCopy(){
+    const ta=document.createElement("textarea"); ta.value=lastReport; document.body.appendChild(ta);
+    ta.select(); try{ document.execCommand("copy"); }catch(e){} document.body.removeChild(ta); done();
+  }
+}
+
+/* ---------- run ---------- */
+function parseHostPort(){
+  let host = $("host").value.trim();
+  const m = host.match(/^(.+):(\d+)$/);
+  if(m){ host = m[1]; $("host").value = host; $("port").value = m[2]; }
+  return { host, port: $("port").value.trim() };
+}
+async function runAudit(){
+  if(busy) return;
+  const { host, port } = parseHostPort();
+  if(!host){ showError("Please enter a hostname or IP address"); $("host").focus(); return; }
+  if(!port){ showError("Please enter a port number", "Default port for SFTP/SSH is 22"); $("port").focus(); return; }
+  if(!/^\d+$/.test(port)){ showError("Invalid port", "Port must be a number"); return; }
+
+  busy = true; $("run").disabled = true; showScanning(host, port);
+  try{
+    const r = await window.pywebview.api.run_audit(host, port);
+    if(!r || !r.ok){ showError("Unable to complete audit", r ? r.error : "Unknown error"); }
+    else { render(r); }
+  }catch(e){
+    showError("Unable to complete audit", String(e));
+  }finally{
+    busy = false; $("run").disabled = false;
+  }
+}
+
+/* ---------- wiring ---------- */
+$("run").addEventListener("click", runAudit);
+$("clear").addEventListener("click", showWelcome);
+$("host").addEventListener("keydown", e => { if(e.key==="Enter") runAudit(); });
+$("port").addEventListener("keydown", e => { if(e.key==="Enter") runAudit(); });
+
+function initVersion(){
+  if(!(window.pywebview && window.pywebview.api)) return;
+  window.pywebview.api.ssh_audit_version().then(v => {
+    if(v) $("ver").textContent = "Powered by ssh-audit " + v;
+  }).catch(()=>{});
+}
+window.addEventListener("pywebviewready", initVersion);
+
+showWelcome();
+$("host").focus();
+</script>
+</body>
+</html>

@@ -1,15 +1,12 @@
-# --- Build artifacts ---
+# PyInstaller build artifacts
 build/
 dist/
-build_env/
 *.spec
+build_env/
 
-# --- Python ---
+# Python
 __pycache__/
-*.py[cod]
-*.egg-info/
-.venv/
-venv/
+*.pyc
 
-# --- Local test launcher (kept off the repo) ---
+# Personal local launcher (not for distribution)
 Launch_*.bat

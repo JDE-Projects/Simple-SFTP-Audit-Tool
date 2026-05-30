@@ -1,0 +1,375 @@
+#!/usr/bin/env python3
+"""
+Simple SFTP Audit Tool
+by JDE-Projects
+
+A standalone desktop tool that audits an SFTP/SSH server's security posture.
+Wraps the ssh-audit engine, parses its output, and presents an at-a-glance
+grade plus a color-coded breakdown in a pywebview (Qt) window.
+
+Backend only: the UI lives in simple_sftp_audit_tool-UI.html. This module runs
+ssh-audit in-process and returns parsed results to the page via the JS bridge.
+
+Run from source:  python simple_sftp_audit_tool.py
+Build the .exe:    Build_Simple_SFTP_Audit_Tool.bat
+"""
+
+import io
+import os
+import re
+import sys
+import threading
+import time
+from contextlib import redirect_stdout, redirect_stderr
+
+import webview
+
+APP_ID = "JDEProjects.SimpleSFTPAuditTool"
+UI_FILE = "simple_sftp_audit_tool-UI.html"
+ICON_PNG = "simple_sftp_audit_tool.png"
+
+# Splash timing (runbook spec)
+SPLASH_FLOOR = 5.0      # never close before this many seconds
+SPLASH_CEILING = 30.0   # watchdog: always close by this many seconds
+
+
+# --------------------------------------------------------------------------- #
+# Helpers
+# --------------------------------------------------------------------------- #
+def resource_path(rel):
+    """Path to a bundled resource, in dev and in a PyInstaller onefile build."""
+    base = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(base, rel)
+
+
+# Strip ANSI/terminal escapes: colour/CSI, cursor save/restore (ESC 7/ESC 8),
+# and other escape sequences. (Runbook: clean captured terminal output.)
+_ANSI = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]|\x1b[78]|\x1b[@-Z\\-_]")
+
+
+def _clean(line):
+    return _ANSI.sub("", line).strip()
+
+
+# --------------------------------------------------------------------------- #
+# ssh-audit run + parse  (logic ported from the tested tkinter version)
+# --------------------------------------------------------------------------- #
+def _run_ssh_audit(host, port):
+    """Run ssh-audit in-process; return its raw text output (or '')."""
+    from ssh_audit.ssh_audit import main as audit_main
+
+    args = ["ssh-audit", "-v", "-4", "-t", "10", "-p", str(port), host]
+    original_argv = sys.argv
+    sys.argv = args
+    try:
+        buf = io.StringIO()
+        with redirect_stdout(buf), redirect_stderr(buf):
+            try:
+                audit_main()
+            except SystemExit:
+                pass
+        return buf.getvalue()
+    finally:
+        sys.argv = original_argv
+
+
+def _parse(output):
+    """Parse ssh-audit output into a structured dict."""
+    parsed = {
+        "software": "", "os": "", "compression": [], "security_issues": [],
+        "kex": [], "key": [], "enc": [], "mac": [],
+        "fingerprints": [], "recommendations": [],
+    }
+    section = None
+    for raw in output.split("\n"):
+        clean = _clean(raw)
+        if not clean:
+            continue
+
+        if clean.startswith("# general"):
+            section = "general"; continue
+        elif clean.startswith("# key exchange algorithms"):
+            section = "kex"; continue
+        elif clean.startswith("# host-key algorithms"):
+            section = "key"; continue
+        elif clean.startswith("# encryption algorithms"):
+            section = "enc"; continue
+        elif clean.startswith("# message authentication"):
+            section = "mac"; continue
+        elif clean.startswith("# fingerprints"):
+            section = "fingerprints"; continue
+        elif clean.startswith("# algorithm recommendations"):
+            section = "recommendations"; continue
+        elif clean.startswith("# additional info"):
+            section = "additional"; continue
+        elif clean.startswith("# compression"):
+            section = "compression"; continue
+        elif clean.startswith("#"):
+            section = None; continue
+
+        if section == "general":
+            if "(gen)" in clean:
+                gen = clean.replace("(gen)", "").strip()
+                low = gen.lower()
+                if "software:" in low:
+                    parsed["software"] = gen.split(":", 1)[1].strip() if ":" in gen else gen
+                elif "os:" in low:
+                    parsed["os"] = gen.split(":", 1)[1].strip() if ":" in gen else gen
+                elif "banner:" in low:
+                    banner = gen.split(":", 1)[1].strip() if ":" in gen else gen
+                    if not parsed["software"]:
+                        parsed["software"] = banner
+                elif gen.startswith("SSH-") or "ssh" in low:
+                    if not parsed["software"]:
+                        parsed["software"] = gen
+                if "[fail]" in clean.lower() or "[warn]" in clean.lower():
+                    parsed["security_issues"].append(gen)
+
+        elif section == "compression":
+            if "(cmp)" in clean:
+                mo = re.search(r"\(cmp\)\s+(\S+)", clean)
+                if mo:
+                    parsed["compression"].append(mo.group(1))
+
+        elif section in ("kex", "key", "enc", "mac"):
+            mo = re.match(r"\((?:kex|key|enc|mac)\)\s+(\S+)", clean)
+            if mo:
+                name = mo.group(1)
+                size_mo = re.search(r"\((\d+)-bit\)", clean)
+                key_size = size_mo.group(1) if size_mo else None
+                status = "good"
+                if "[fail]" in clean.lower():
+                    status = "fail"
+                elif "[warn]" in clean.lower():
+                    status = "warn"
+                reason = ""
+                rmo = re.search(r"--\s+\[(fail|warn|info)\]\s+(.+)$", clean)
+                if rmo and rmo.group(1) in ("fail", "warn"):
+                    reason = rmo.group(2)
+                existing = next((a for a in parsed[section] if a["name"] == name), None)
+                if existing:
+                    pri = {"fail": 3, "warn": 2, "good": 1}
+                    if pri[status] > pri[existing["status"]]:
+                        existing["status"] = status
+                    if reason and reason not in existing["reason"]:
+                        existing["reason"] = (existing["reason"] + "; " + reason).strip("; ")
+                    if key_size and not existing.get("key_size"):
+                        existing["key_size"] = key_size
+                else:
+                    parsed[section].append(
+                        {"name": name, "status": status, "reason": reason, "key_size": key_size}
+                    )
+
+        elif section == "fingerprints":
+            if "(fin)" in clean:
+                parsed["fingerprints"].append(clean.replace("(fin)", "").strip())
+
+        elif section == "recommendations":
+            if "(rec)" in clean:
+                parsed["recommendations"].append(clean.replace("(rec)", "").strip())
+
+        elif section == "additional":
+            if "(nfo)" in clean or "(inf)" in clean:
+                txt = re.sub(r"\(nfo\)|\(inf\)", "", clean).strip()
+                if txt:
+                    parsed["security_issues"].append(txt)
+
+    return parsed
+
+
+def _counts(parsed):
+    fails = warns = goods = 0
+    for sec in ("kex", "key", "enc", "mac"):
+        for alg in parsed[sec]:
+            if alg["status"] == "fail":
+                fails += 1
+            elif alg["status"] == "warn":
+                warns += 1
+            else:
+                goods += 1
+    return fails, warns, goods
+
+
+def _grade(fails, warns, goods):
+    total = fails + warns + goods
+    if total == 0:
+        return "?", "#5a6678"
+    if fails == 0 and warns == 0:
+        return "A+", "#5ce39b"
+    if fails == 0 and warns <= 2:
+        return "A", "#4dd6c1"
+    if fails == 0:
+        return "B", "#6db3ff"
+    if fails <= 2:
+        return "C", "#f0b860"
+    if fails <= 5:
+        return "D", "#f0b860"
+    return "F", "#ff6b7a"
+
+
+def _checklist(parsed):
+    items = []
+    all_kex = [a["name"].lower() for a in parsed["kex"]]
+    all_key = [a["name"].lower() for a in parsed["key"]]
+    all_enc = [a["name"].lower() for a in parsed["enc"]]
+    all_mac = [a["name"].lower() for a in parsed["mac"]]
+
+    if "ssh-rsa" in all_key:
+        items.append({"status": "bad", "text": "Supports ssh-rsa (SHA-1 signatures) - deprecated"})
+    else:
+        items.append({"status": "good", "text": "No SHA-1 signature algorithms (ssh-rsa not supported)"})
+
+    modern_kex = ["curve25519-sha256", "curve25519-sha256@libssh.org",
+                  "sntrup761x25519-sha512@openssh.com"]
+    if any(k in all_kex for k in modern_kex):
+        items.append({"status": "good", "text": "Supports modern key exchange (Curve25519)"})
+    else:
+        items.append({"status": "warn", "text": "No Curve25519 key exchange support"})
+
+    weak_kex = ["diffie-hellman-group1-sha1", "diffie-hellman-group14-sha1",
+                "diffie-hellman-group-exchange-sha1"]
+    if any(k in all_kex for k in weak_kex):
+        items.append({"status": "bad", "text": "Supports weak key exchange algorithms (SHA-1 based DH)"})
+    else:
+        items.append({"status": "good", "text": "No weak key exchange algorithms"})
+
+    cbc = [c for c in all_enc if "-cbc" in c]
+    if cbc:
+        items.append({"status": "warn", "text": f"Supports CBC mode ciphers ({len(cbc)} found) - padding oracle risk"})
+    else:
+        items.append({"status": "good", "text": "No CBC mode ciphers"})
+
+    aead = ["chacha20-poly1305@openssh.com", "aes128-gcm@openssh.com", "aes256-gcm@openssh.com"]
+    if any(c in all_enc for c in aead):
+        items.append({"status": "good", "text": "Supports authenticated encryption (AEAD ciphers)"})
+    else:
+        items.append({"status": "warn", "text": "No AEAD ciphers (ChaCha20-Poly1305 or AES-GCM)"})
+
+    if any("arcfour" in c for c in all_enc):
+        items.append({"status": "bad", "text": "Supports arcfour/RC4 - broken cipher"})
+    if any("3des" in c for c in all_enc):
+        items.append({"status": "bad", "text": "Supports 3DES - weak cipher"})
+    if any("md5" in m for m in all_mac):
+        items.append({"status": "bad", "text": "Supports MD5-based MACs - weak hash"})
+
+    if any("-etm@" in m for m in all_mac):
+        items.append({"status": "good", "text": "Supports Encrypt-then-MAC (ETM) modes"})
+    else:
+        items.append({"status": "warn", "text": "No Encrypt-then-MAC (ETM) support"})
+
+    if any("ed25519" in k for k in all_key):
+        items.append({"status": "good", "text": "Supports Ed25519 host keys"})
+
+    return items
+
+
+# --------------------------------------------------------------------------- #
+# JS-facing API
+# --------------------------------------------------------------------------- #
+class Api:
+    def run_audit(self, host, port):
+        """Called from the page. Returns a parsed result dict (or an error)."""
+        host = (host or "").strip()
+        try:
+            port = int(str(port).strip())
+        except (TypeError, ValueError):
+            return {"ok": False, "error": "Port must be a number."}
+        if not host:
+            return {"ok": False, "error": "Please enter a hostname or IP address."}
+
+        try:
+            output = _run_ssh_audit(host, port)
+        except ImportError as e:
+            return {"ok": False, "error": f"ssh-audit library not found: {e}"}
+        except Exception:
+            output = ""
+
+        if not output.strip() or ("kex" not in output.lower() and "key" not in output.lower()):
+            return {"ok": False,
+                    "error": f"Could not connect to {host}:{port}. "
+                             f"Can you reach this SFTP server from this machine and public IP?",
+                    "host": host, "port": port}
+
+        parsed = _parse(output)
+        fails, warns, goods = _counts(parsed)
+        grade, color = _grade(fails, warns, goods)
+        return {
+            "ok": True, "host": host, "port": port,
+            "grade": grade, "grade_color": color,
+            "counts": {"fails": fails, "warns": warns, "goods": goods},
+            "software": parsed["software"], "os": parsed["os"],
+            "compression": parsed["compression"],
+            "security_issues": parsed["security_issues"],
+            "checklist": _checklist(parsed),
+            "sections": {k: parsed[k] for k in ("kex", "key", "enc", "mac")},
+            "recommendations": parsed["recommendations"],
+            "fingerprints": parsed["fingerprints"],
+        }
+
+    def ssh_audit_version(self):
+        try:
+            from ssh_audit.ssh_audit import VERSION
+            return VERSION
+        except Exception:
+            return ""
+
+
+# --------------------------------------------------------------------------- #
+# Splash control (guarded; does nothing in source/dev runs)
+# --------------------------------------------------------------------------- #
+def _start_splash_closer(loaded_event):
+    try:
+        import pyi_splash  # only present in the PyInstaller bundle
+    except Exception:
+        return  # dev run: no splash
+
+    def closer():
+        start = time.time()
+        # close once both the 5s floor has passed and the window is loaded,
+        # or unconditionally at the watchdog ceiling.
+        while time.time() - start < SPLASH_CEILING:
+            if time.time() - start >= SPLASH_FLOOR and loaded_event.is_set():
+                break
+            time.sleep(0.1)
+        try:
+            pyi_splash.close()
+        except Exception:
+            pass
+
+    threading.Thread(target=closer, daemon=True).start()
+
+
+# --------------------------------------------------------------------------- #
+# Entry point
+# --------------------------------------------------------------------------- #
+def main():
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(APP_ID)
+        except Exception:
+            pass
+
+    window = webview.create_window(
+        "Simple SFTP Audit Tool",
+        url=resource_path(UI_FILE),
+        js_api=Api(),
+        width=1000, height=820, min_size=(820, 600),
+        background_color="#0a0e14",
+    )
+
+    loaded = threading.Event()
+    window.events.loaded += lambda: loaded.set()
+    _start_splash_closer(loaded)
+
+    try:
+        webview.start(gui="qt", icon=resource_path(ICON_PNG))
+    except TypeError:
+        # older pywebview without the icon kwarg
+        webview.start(gui="qt")
+
+
+if __name__ == "__main__":
+    import multiprocessing
+    multiprocessing.freeze_support()
+    main()
