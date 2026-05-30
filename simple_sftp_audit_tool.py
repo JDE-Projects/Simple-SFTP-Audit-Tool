@@ -313,6 +313,16 @@ class Api:
         except Exception:
             return ""
 
+    def open_url(self, url):
+        """Open an external link in the system browser (not the app window)."""
+        import webbrowser
+        try:
+            if isinstance(url, str) and url.startswith(("http://", "https://")):
+                webbrowser.open(url)
+        except Exception:
+            pass
+        return True
+
 
 # --------------------------------------------------------------------------- #
 # Splash control (guarded; does nothing in source/dev runs)

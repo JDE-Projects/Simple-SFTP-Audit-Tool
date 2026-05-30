@@ -41,10 +41,12 @@ body{
 .wrap{ max-width:980px; margin:0 auto; padding:22px 26px 40px; }
 
 /* ---- header ---- */
-header{ display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:18px; }
-h1{ font-size:24px; font-weight:700; margin:0; letter-spacing:-0.01em; }
+header{ display:flex; align-items:flex-end; justify-content:space-between; margin-bottom:18px; }
+.title h1{ font-size:24px; font-weight:700; margin:0; letter-spacing:-0.01em; white-space:nowrap; }
+.title .by{ display:block; margin-top:4px; font-family:"JetBrains Mono",monospace; font-size:11px; color:var(--text-dim); }
+.title .ghl{ display:inline-block; margin-top:2px; font-family:"JetBrains Mono",monospace; font-size:10.5px; color:var(--accent); text-decoration:none; }
+.title .ghl:hover{ text-decoration:underline; }
 .meta{ text-align:right; font-family:"JetBrains Mono",monospace; line-height:1.5; }
-.meta .by{ color:var(--text-dim); font-size:11px; }
 .meta .ver{ color:var(--text-faint); font-size:10.5px; }
 .meta a{ color:var(--accent); font-size:10.5px; text-decoration:none; }
 .meta a:hover{ text-decoration:underline; }
@@ -164,11 +166,14 @@ button{ font-family:"Sora", system-ui, sans-serif; cursor:pointer; border:none; 
 <body>
 <div class="wrap">
   <header>
-    <h1>Simple SFTP Audit Tool</h1>
-    <div class="meta">
+    <div class="title">
+      <h1>Simple SFTP Audit Tool</h1>
       <div class="by">by JDE-Projects</div>
+      <a class="ghl" id="bylink" href="https://github.com/JDE-Projects" onclick="return openExt('https://github.com/JDE-Projects')">github.com/JDE-Projects</a>
+    </div>
+    <div class="meta">
       <div class="ver" id="ver">Powered by ssh-audit</div>
-      <a href="#" id="ghlink">github.com/jtesta/ssh-audit</a>
+      <a id="ghlink" href="https://github.com/jtesta/ssh-audit" onclick="return openExt('https://github.com/jtesta/ssh-audit')">github.com/jtesta/ssh-audit</a>
     </div>
   </header>
 
@@ -410,6 +415,13 @@ function initVersion(){
     if(v) $("ver").textContent = "Powered by ssh-audit " + v;
   }).catch(()=>{});
 }
+function openExt(url){
+  if(window.pywebview && window.pywebview.api && window.pywebview.api.open_url){
+    window.pywebview.api.open_url(url);
+  }
+  return false;
+}
+window.openExt = openExt;
 window.addEventListener("pywebviewready", initVersion);
 
 showWelcome();
