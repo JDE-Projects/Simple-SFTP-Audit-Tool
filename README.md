@@ -78,3 +78,5 @@ This project was built with AI assistance. The design decisions, feature directi
 ## License
 
 Released under the [MIT License](LICENSE). You are free to use, modify, and distribute it; keep the copyright notice, and it comes with no warranty.
+
+This tool bundles [ssh-audit](https://github.com/jtesta/ssh-audit), which is also MIT licensed. Its copyright and license notice are included in [THIRD-PARTY-LICENSES.txt](THIRD-PARTY-LICENSES.txt).
