@@ -20,9 +20,15 @@ import re
 import sys
 import threading
 import time
+import json
+from datetime import datetime
+from urllib.request import Request, urlopen
 from contextlib import redirect_stdout, redirect_stderr
 
 import webview
+
+APP_VERSION = "1.0.0"
+GITHUB_REPO = "JDE-Projects/Simple-SFTP-Audit-Tool"  # owner/repo for update checks
 
 APP_ID = "JDEProjects.SimpleSFTPAuditTool"
 UI_FILE = "simple_sftp_audit_tool-UI.html"
@@ -266,8 +272,78 @@ def _checklist(parsed):
 # --------------------------------------------------------------------------- #
 # JS-facing API
 # --------------------------------------------------------------------------- #
+def _exe_dir():
+    if getattr(sys, "frozen", False):
+        return os.path.dirname(sys.executable)
+    return os.path.dirname(os.path.abspath(__file__))
+
+
+class DebugLog:
+    def __init__(self):
+        self._on = False; self._path = None; self._lock = threading.Lock()
+    def set_enabled(self, on):
+        with self._lock:
+            on = bool(on)
+            if on and not self._path:
+                self._path = os.path.join(_exe_dir(), "Debug_Log_" + datetime.now().strftime("%m%d%Y_%H%M%S") + ".txt")
+                try:
+                    with open(self._path, "w", encoding="utf-8") as f:
+                        f.write("=== Simple SFTP Audit Tool debug log ===\n")
+                except Exception:
+                    self._path = None; self._on = False; return False
+            self._on = on; return True
+    def is_enabled(self):
+        return self._on
+    def log(self, label, content=""):
+        if not self._on or not self._path:
+            return
+        try:
+            with self._lock, open(self._path, "a", encoding="utf-8") as f:
+                f.write("[" + datetime.now().strftime("%H:%M:%S") + "] " + label + "\n")
+                if content:
+                    if isinstance(content, (dict, list)):
+                        content = json.dumps(content, indent=2, default=str)
+                    f.write(str(content) + "\n")
+                f.write("\n")
+        except Exception:
+            pass
+
+
+debug = DebugLog()
+
+
 class Api:
+    def set_debug(self, enabled):
+        ok = debug.set_enabled(enabled)
+        debug.log("Debug enabled" if enabled and ok else "Debug disabled")
+        return {"ok": ok, "enabled": debug.is_enabled()}
+
+    def check_update(self):
+        try:
+            req = Request("https://api.github.com/repos/%s/releases/latest" % GITHUB_REPO,
+                          headers={"User-Agent": "Simple-SFTP-Audit-Tool", "Accept": "application/vnd.github+json"})
+            with urlopen(req, timeout=8) as r:
+                data = json.loads(r.read().decode())
+            tag = (data.get("tag_name") or "").lstrip("v")
+            return {"ok": True, "current": APP_VERSION, "latest": tag,
+                    "update": self._is_newer(tag, APP_VERSION), "url": data.get("html_url", "")}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    def _is_newer(self, latest, current):
+        def parts(v):
+            out = []
+            for x in v.split("."):
+                try: out.append(int(x))
+                except ValueError: out.append(0)
+            return out + [0] * (3 - len(out))
+        try:
+            return parts(latest) > parts(current)
+        except Exception:
+            return False
+
     def run_audit(self, host, port):
+        debug.log("AUDIT", {"host": host, "port": port})
         """Called from the page. Returns a parsed result dict (or an error)."""
         host = (host or "").strip()
         try:

@@ -10,3 +10,6 @@ __pycache__/
 
 # Personal local launcher (not for distribution)
 Launch_*.bat
+
+# Optional debug logs (written next to the exe when toggled on)
+Debug_Log_*.txt

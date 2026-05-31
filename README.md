@@ -66,6 +66,12 @@ A few things worth knowing:
 
 This project was built with AI assistance. The design decisions, feature direction, and real-world testing were directed by me. The code was written and revised with an AI assistant against that direction. Treat it like any community tool: review and test it before relying on it.
 
+## Updates
+Use Check for Updates (footer) to compare against the latest GitHub Release; if newer, it links you to the download. Silent when offline or while the repo is private.
+
+## Debug log
+Off by default. Toggle it in the footer to write `Debug_Log_MMDDYYYY_HHMMSS.txt` next to the app for the current run.
+
 ## License
 
 Released under the [MIT License](LICENSE). You are free to use, modify, and distribute it; keep the copyright notice, and it comes with no warranty.
