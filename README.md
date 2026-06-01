@@ -20,19 +20,19 @@ Built by [JDE-Projects](https://github.com/JDE-Projects).
 
 ## Download and run
 
-Grab the latest `Simple SFTP Audit Tool.exe` from the [Releases](../../releases) page and double-click it. No Python or setup required. Windows only.
+Grab the latest release zip from the [Releases](../../releases) page, extract it, and run `Simple SFTP Audit Tool.exe` from inside the extracted folder. Keep the folder together; the exe needs the files next to it. No Python or setup required. Windows only.
 
 Because it is unsigned, Windows SmartScreen may warn about an unknown publisher the first time. Click **More info > Run anyway**.
 
 ## Build from source (optional)
 
 - Python 3 on PATH.
-- `pip install pywebview PyQt6 PyQt6-WebEngine qtpy ssh-audit`
+- `pip install pywebview PySide6 qtpy ssh-audit`
 
 Keep `simple_sftp_audit_tool.py`, `simple_sftp_audit_tool-UI.html`, the `fonts/` folder, `simple_sftp_audit_tool.ico`, `simple_sftp_audit_tool.png`, and `simple_sftp_audit_tool-splash.png` together (the app loads the UI, fonts, and icon next to itself). Then either:
 
 - **Run from source:** `python simple_sftp_audit_tool.py` (or double-click `Launch_Simple_SFTP_Audit_Tool.bat`)
-- **Build the .exe:** double-click `Build_Simple_SFTP_Audit_Tool.bat`, which produces `dist\Simple SFTP Audit Tool.exe`.
+- **Build the app:** double-click `Build_Simple_SFTP_Audit_Tool.bat`, which produces `dist\Simple SFTP Audit Tool\` (a folder containing `Simple SFTP Audit Tool.exe` and its files). Zip that folder to distribute it.
 
 The build script pulls ssh-audit from the GitHub **master** branch rather than the older PyPI release, so the bundled engine has the most current algorithm coverage. That step needs [Git](https://git-scm.com) installed on the build machine (not on end users).
 
@@ -74,6 +74,6 @@ Off by default. Toggle it in the footer to write `Debug_Log_MMDDYYYY_HHMMSS.txt`
 
 ## License
 
-Released under the [MIT License](LICENSE). You are free to use, modify, and distribute it; keep the copyright notice, and it comes with no warranty.
+Released under the [PolyForm Noncommercial License 1.0.0](LICENSE). Free for personal and any noncommercial use, modification, and noncommercial redistribution; commercial use is not permitted. Keep the copyright notice; no warranty.
 
-This tool bundles [ssh-audit](https://github.com/jtesta/ssh-audit), which is also MIT licensed. Its copyright and license notice are included in [THIRD-PARTY-LICENSES.txt](THIRD-PARTY-LICENSES.txt).
+This tool bundles third-party components: Qt via PySide6 (LGPL-3.0), pywebview (BSD-3-Clause), the Sora and JetBrains Mono fonts (OFL-1.1), and ssh-audit (MIT). Their notices and sources are in [THIRD-PARTY-LICENSES.txt](THIRD-PARTY-LICENSES.txt). The Qt binding is PySide6 (LGPL, not GPL) and the build is `--onedir`, so the bundled Qt libraries stay replaceable.

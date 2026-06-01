@@ -25,6 +25,10 @@ from datetime import datetime
 from urllib.request import Request, urlopen
 from contextlib import redirect_stdout, redirect_stderr
 
+# Force the LGPL Qt binding (PySide6) so qtpy never picks up PyQt6 (GPL).
+# setdefault leaves an explicit override in place if one is ever set.
+os.environ.setdefault("QT_API", "pyside6")
+
 import webview
 
 APP_VERSION = "1.0.0"
@@ -43,7 +47,7 @@ SPLASH_CEILING = 30.0   # watchdog: always close by this many seconds
 # Helpers
 # --------------------------------------------------------------------------- #
 def resource_path(rel):
-    """Path to a bundled resource, in dev and in a PyInstaller onefile build."""
+    """Path to a bundled resource, in dev and in a PyInstaller bundle (onedir/onefile)."""
     base = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
     return os.path.join(base, rel)
 
