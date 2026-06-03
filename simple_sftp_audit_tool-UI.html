@@ -38,7 +38,7 @@ body{
 ::-webkit-scrollbar-thumb{ background:var(--border-2); border-radius:8px; }
 ::-webkit-scrollbar-thumb:hover{ background:#3a4666; }
 
-.wrap{ max-width:980px; margin:0 auto; padding:22px 26px 40px; }
+.wrap{ max-width:980px; margin:0 auto; padding:22px 26px 64px; }
 
 /* ---- header ---- */
 header{ display:flex; align-items:flex-end; justify-content:space-between; margin-bottom:18px; }
@@ -154,6 +154,44 @@ button{ font-family:"Sora", system-ui, sans-serif; cursor:pointer; border:none; 
 @keyframes fade{ from{ opacity:0; transform:translateY(6px); } to{ opacity:1; transform:none; } }
 
 .copyrow{ text-align:center; margin-top:6px; }
+
+/* ---- bottom bar ---- */
+.bottom-bar{
+  position:fixed; bottom:0; left:0; right:0;
+  height:44px; background:var(--bg-2); border-top:1px solid var(--border);
+  display:flex; align-items:center; justify-content:space-between;
+  padding:0 18px; z-index:100;
+}
+.bottom-bar .left{ display:flex; align-items:center; gap:10px; }
+.bottom-bar .right{ display:flex; align-items:center; gap:14px; }
+.bottom-bar .ver-label{ font-family:"JetBrains Mono",monospace; font-size:11px; color:var(--text-faint); }
+
+/* pill toggle */
+.tog-wrap{ display:flex; align-items:center; gap:8px; cursor:pointer; user-select:none; }
+.tog-wrap .tog-label{ font-size:13px; color:var(--text-dim); }
+.tog{ position:relative; width:36px; height:20px; }
+.tog input{ opacity:0; width:0; height:0; position:absolute; }
+.tog-track{
+  position:absolute; inset:0; border-radius:999px;
+  background:var(--panel-2); border:1px solid var(--border-2);
+  transition:background .2s, border-color .2s;
+}
+.tog input:checked ~ .tog-track{ background:var(--accent-2); border-color:var(--accent); }
+.tog-thumb{
+  position:absolute; top:3px; left:3px;
+  width:14px; height:14px; border-radius:50%;
+  background:var(--text-faint); transition:transform .2s, background .2s;
+}
+.tog input:checked ~ .tog-thumb{ transform:translateX(16px); background:#042b27; }
+
+.btn-update{
+  font-family:"Sora",system-ui,sans-serif; cursor:pointer;
+  background:transparent; color:var(--text-dim);
+  border:1px solid var(--border-2); border-radius:var(--radius-sm);
+  font-size:12px; padding:5px 12px;
+  transition:border-color .15s, color .15s, transform .15s;
+}
+.btn-update:hover{ border-color:var(--accent); color:var(--text); transform:translateY(-1px); }
 .toast{
   position:fixed; left:50%; bottom:26px; transform:translateX(-50%) translateY(20px);
   background:var(--panel-2); border:1px solid var(--accent); color:var(--text);
@@ -175,11 +213,6 @@ button{ font-family:"Sora", system-ui, sans-serif; cursor:pointer; border:none; 
       <div class="ver" id="ver">Powered by ssh-audit</div>
       <a id="ghlink" href="https://github.com/jtesta/ssh-audit" onclick="return openExt('https://github.com/jtesta/ssh-audit')">github.com/jtesta/ssh-audit</a>
       <div id="update" class="ver" style="margin-top:6px"></div>
-      <div style="display:flex;align-items:center;gap:14px;margin-top:6px">
-        <a class="ghl" href="#" onclick="return manualUpdate()">Check for updates</a>
-        <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer">
-          <input type="checkbox" id="dbg"> Debug log</label>
-      </div>
     </div>
   </header>
 
@@ -202,6 +235,23 @@ button{ font-family:"Sora", system-ui, sans-serif; cursor:pointer; border:none; 
 </div>
 
 <div class="toast" id="toast">Report copied to clipboard</div>
+
+<div class="bottom-bar">
+  <div class="left">
+    <label class="tog-wrap" for="dbg">
+      <span class="tog">
+        <input type="checkbox" id="dbg">
+        <span class="tog-track"></span>
+        <span class="tog-thumb"></span>
+      </span>
+      <span class="tog-label">Debug log</span>
+    </label>
+  </div>
+  <div class="right">
+    <span class="ver-label" id="ver-bar">v1.0.0</span>
+    <button class="btn-update" onclick="manualUpdate()">Check for updates</button>
+  </div>
+</div>
 
 <script>
 const $ = (id) => document.getElementById(id);
@@ -419,6 +469,9 @@ function initVersion(){
   if(!(window.pywebview && window.pywebview.api)) return;
   window.pywebview.api.ssh_audit_version().then(v => {
     if(v) $("ver").textContent = "Powered by ssh-audit " + v;
+  }).catch(()=>{});
+  window.pywebview.api.check_update().then(r => {
+    if(r && r.current) $("ver-bar").textContent = "v" + r.current;
   }).catch(()=>{});
 }
 function openExt(url){
