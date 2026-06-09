@@ -77,3 +77,5 @@ Off by default. Toggle it in the footer to write `Debug_Log_MMDDYYYY_HHMMSS.txt`
 Released under the [PolyForm Noncommercial License 1.0.0](LICENSE). Free for personal and any noncommercial use, modification, and noncommercial redistribution; commercial use is not permitted. Keep the copyright notice; no warranty.
 
 This tool bundles third-party components: Qt via PySide6 (LGPL-3.0), pywebview (BSD-3-Clause), the Sora and JetBrains Mono fonts (OFL-1.1), and ssh-audit (MIT). Their notices and sources are in [THIRD-PARTY-LICENSES.txt](THIRD-PARTY-LICENSES.txt). The Qt binding is PySide6 (LGPL, not GPL) and the build is `--onedir`, so the bundled Qt libraries stay replaceable.
+
+For commercial licensing, open a [GitHub issue](https://github.com/JDE-Projects/Simple-SFTP-Audit-Tool/issues) with the title "Commercial License Inquiry".
