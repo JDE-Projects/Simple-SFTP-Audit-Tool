@@ -1,0 +1,14 @@
+# Pinned build dependencies for Simple SFTP Audit Tool.
+# Versions match the JDE pilot's green CI build (Python 3.14, 2026-06-17).
+# Dependabot opens review-PRs for the == deps below when newer releases appear.
+pywebview==6.2.1
+PySide6==6.11.1
+qtpy==2.4.3
+pyinstaller==6.21.0
+
+# ssh-audit: pulled from GitHub master (PyPI 3.3.0 is stale), pinned to an exact
+# commit for a reproducible build. Dependabot does NOT auto-update git URLs.
+# REBUILD/UPDATE: before bumping this SHA, review ssh-audit master diffs since it
+# for anything malicious or breaking, confirm `main`/`VERSION` still import, then
+# bump. See README "Keeping ssh-audit current". Pinned 2026-06-17 to 2026-06-14 master.
+ssh-audit @ git+https://github.com/jtesta/ssh-audit.git@e42d993b07cc0067c01d77ec192c5c24ed4510c5

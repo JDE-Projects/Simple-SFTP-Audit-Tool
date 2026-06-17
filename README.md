@@ -24,17 +24,33 @@ Grab the latest release zip from the [Releases](../../releases) page, extract it
 
 Because it is unsigned, Windows SmartScreen may warn about an unknown publisher the first time. Click **More info > Run anyway**.
 
+## Verify this download (optional)
+
+This release was built on GitHub from this public source - not on a personal machine - and is signed with a build-provenance attestation. To confirm a download is genuine, install the [GitHub CLI](https://cli.github.com) and run:
+
+```
+gh attestation verify SimpleSFTPAuditTool-vX.Y.Z.zip \
+  --repo JDE-Projects/Simple-SFTP-Audit-Tool \
+  --signer-repo JDE-Projects/Build-Tools
+```
+
+A `Verification succeeded!` line means the file was built by the published pipeline from this repo. You can also check the file against the published `.sha256`.
+
 ## Build from source (optional)
 
 - Python 3 on PATH.
-- `pip install pywebview PySide6 qtpy ssh-audit`
+- `pip install -r requirements.txt` (pinned versions: PySide6, pywebview, qtpy, PyInstaller, and ssh-audit at a specific GitHub master commit — needs Git installed)
 
 Keep `simple_sftp_audit_tool.py`, `simple_sftp_audit_tool-UI.html`, the `fonts/` folder, `simple_sftp_audit_tool.ico`, `simple_sftp_audit_tool.png`, and `simple_sftp_audit_tool-splash.png` together (the app loads the UI, fonts, and icon next to itself). Then either:
 
 - **Run from source:** `python simple_sftp_audit_tool.py` (or double-click `Launch_Simple_SFTP_Audit_Tool.bat`)
 - **Build the app:** double-click `Build_Simple_SFTP_Audit_Tool.bat`, which produces `dist\Simple SFTP Audit Tool\` (a folder containing `Simple SFTP Audit Tool.exe` and its files). Zip that folder to distribute it.
 
-The build script pulls ssh-audit from the GitHub **master** branch rather than the older PyPI release, so the bundled engine has the most current algorithm coverage. That step needs [Git](https://git-scm.com) installed on the build machine (not on end users).
+### Keeping ssh-audit current
+
+The scanning engine is [ssh-audit](https://github.com/jtesta/ssh-audit). Its PyPI release lags well behind active development, so the build bundles ssh-audit from the project's **master** branch to get current algorithm coverage and post-quantum advisories. Building from master needs [Git](https://git-scm.com) on the build machine (not on end users).
+
+For a reproducible, verifiable build, `requirements.txt` pins ssh-audit to one **exact master commit** rather than floating on whatever master is at build time. Before that pin is moved to a newer commit, the changes on ssh-audit's master since the pinned commit are reviewed for anything malicious or breaking and the tool's entry points are re-confirmed — *then* the commit is bumped and a new release built. So every release bundles a known, reviewed snapshot of ssh-audit, not an unaudited moving target.
 
 ## Using it
 
