@@ -4,6 +4,8 @@ A standalone desktop tool that scans an SFTP/SSH server and shows its security p
 
 Built by [JDE-Projects](https://github.com/JDE-Projects).
 
+If you enjoyed this project and would like to buy me a coffee, check out my [Ko-fi](https://ko-fi.com/jdeprojects).
+
 ## Highlights
 
 - **At-a-glance grade.** Every scan returns an overall A+ to F grade plus a count of failures, warnings, and secure items.
