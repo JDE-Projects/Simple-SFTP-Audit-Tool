@@ -1,0 +1,3 @@
+Launch the tool from the Start menu.
+Enter a server host and port, then click Run Audit to scan its SSH/SFTP security posture and get an A-F grade.
+Use Copy Report to Clipboard to save the result. Nothing is written to disk; the tool never logs in.
