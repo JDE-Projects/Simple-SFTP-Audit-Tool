@@ -22,9 +22,12 @@ If you enjoyed this project and would like to buy me a coffee, check out my [Ko-
 
 ## Download and run
 
-Grab the latest release zip from the [Releases](../../releases) page, extract it, and run `Simple SFTP Audit Tool.exe` from inside the extracted folder. Keep the folder together; the exe needs the files next to it. No Python or setup required. Windows only.
+Two ways to get it from the [Releases](../../releases) page - pick one:
 
-Because it is unsigned, Windows SmartScreen may warn about an unknown publisher the first time. Click **More info > Run anyway**.
+- **Installer (recommended):** download `SimpleSFTPAuditTool-vX.Y.Z-setup.exe` and run it. Installs the app, adds a Start menu shortcut, and can be removed later from Add or Remove Programs. Installs just for you by default (no admin); you can choose all users during setup.
+- **Portable .zip:** download `SimpleSFTPAuditTool-vX.Y.Z.zip`, extract it, and run `Simple SFTP Audit Tool.exe` from inside the extracted folder. No install - good for a locked-down PC or a USB stick. Keep the folder together; the exe needs the files next to it.
+
+Windows only, no Python or setup required. Because it is unsigned, Windows SmartScreen may warn about an unknown publisher the first time. Click **More info > Run anyway**.
 
 ## Verify this download (optional)
 
