@@ -18,7 +18,17 @@
   --text:#dfe7f2; --text-dim:#8a98b0; --text-faint:#5a6678;
   --accent:#4dd6c1; --accent-2:#2bb6a3; --glow:rgba(77,214,193,0.35);
   --amber:#f0b860; --red:#ff6b7a; --green:#5ce39b; --blue:#6db3ff; --purple:#b48cff;
+  --btn-text:#042b27;
   --radius:14px; --radius-sm:9px;
+}
+/* ---- JDE Light Teal tokens (opt-in via body.light) ---- */
+body.light {
+  --bg:#eef3f4; --bg-2:#e4ebed; --panel:#ffffff; --panel-2:#f5f9fa;
+  --border:#d3dee1; --border-2:#bcccd0;
+  --text:#16212c; --text-dim:#4f606d; --text-faint:#8593a0;
+  --accent:#178577; --accent-2:#0f6b5f; --glow:rgba(23,133,119,0.20);
+  --amber:#e0900a; --red:#cf3b50; --green:#1c9560; --blue:#2b6fd0; --purple:#6f48cf;
+  --btn-text:#ffffff;
 }
 *{ box-sizing:border-box; }
 html,body{ margin:0; height:100%; }
@@ -29,6 +39,13 @@ body{
     radial-gradient(820px 520px at 100% 0%, rgba(109,179,255,0.07), transparent 55%),
     var(--bg);
   -webkit-font-smoothing:antialiased;
+  display:flex; flex-direction:column;
+}
+body.light {
+  background:
+    radial-gradient(900px 520px at 12% -8%, rgba(23,133,119,0.08), transparent 60%),
+    radial-gradient(820px 520px at 100% 0%, rgba(43,111,208,0.06), transparent 55%),
+    var(--bg);
 }
 ::selection{ background:rgba(77,214,193,0.3); }
 
@@ -38,27 +55,44 @@ body{
 ::-webkit-scrollbar-thumb{ background:var(--border-2); border-radius:8px; }
 ::-webkit-scrollbar-thumb:hover{ background:#3a4666; }
 
-.wrap{ max-width:980px; margin:0 auto; padding:22px 26px 64px; }
+.wrap{ max-width:980px; width:100%; margin:0 auto; padding:22px 26px 0; flex:1 1 auto; display:flex; flex-direction:column; min-height:0; }
+
+#results{ flex:1 1 auto; overflow-y:auto; min-height:0; padding-bottom:64px; }
 
 /* ---- header ---- */
-header{ display:flex; align-items:flex-end; justify-content:space-between; margin-bottom:18px; }
+header{ display:flex; align-items:flex-end; justify-content:space-between; margin-bottom:18px; flex-shrink:0; }
 .title h1{ font-size:24px; font-weight:700; margin:0; letter-spacing:-0.01em; white-space:nowrap; }
 .title .by{ display:block; margin-top:4px; font-family:"JetBrains Mono",monospace; font-size:11px; color:var(--text-dim); }
 .title .ghl{ display:inline-block; margin-top:2px; font-family:"JetBrains Mono",monospace; font-size:10.5px; color:var(--accent); text-decoration:none; }
 .title .ghl:hover{ text-decoration:underline; }
+.head-right{ display:flex; flex-direction:column; align-items:flex-end; gap:6px; }
 .meta{ text-align:right; font-family:"JetBrains Mono",monospace; line-height:1.5; }
 .meta .ver{ color:var(--text-faint); font-size:10.5px; }
 .meta a{ color:var(--accent); font-size:10.5px; text-decoration:none; }
 .meta a:hover{ text-decoration:underline; }
 
+/* theme toggle (sun/moon outline) */
+.theme-btn {
+  background:transparent; border:1px solid var(--border-2); border-radius:var(--radius-sm);
+  width:36px; height:36px; display:flex; align-items:center; justify-content:center;
+  cursor:pointer; color:var(--text-dim); transition:.15s; flex:0 0 auto;
+}
+.theme-btn:hover { border-color:var(--accent); color:var(--accent); transform:translateY(-1px); }
+.theme-btn svg { width:18px; height:18px; }
+.icon-moon { display:none; }
+body.light .icon-sun { display:none; }
+body.light .icon-moon { display:block; }
+
 /* ---- input panel ---- */
 .panel{
   background:linear-gradient(180deg,var(--panel),var(--bg-2));
   border:1px solid var(--border); border-radius:var(--radius);
-  padding:16px 18px; margin-bottom:18px;
+  padding:16px 18px; margin-bottom:18px; flex-shrink:0;
 }
 .inrow{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
 .field{ display:flex; align-items:center; gap:9px; }
+.field label{ white-space:nowrap; }
+.inrow > .field:first-child{ flex:1; min-width:0; }
 .field label{ font-size:13px; color:var(--text-dim); }
 input[type=text]{
   font-family:"JetBrains Mono",monospace; font-size:14px;
@@ -67,12 +101,12 @@ input[type=text]{
   transition:border-color .15s, box-shadow .15s;
 }
 input[type=text]:focus{ border-color:var(--accent); box-shadow:0 0 0 3px rgba(77,214,193,0.15); }
-#host{ width:320px; }
+#host{ width:100%; min-width:0; }
 #port{ width:74px; text-align:center; }
 
 button{ font-family:"Sora", system-ui, sans-serif; cursor:pointer; border:none; border-radius:var(--radius-sm); transition:transform .15s, box-shadow .15s, border-color .15s, background .15s; }
 .btn-primary{
-  background:linear-gradient(180deg,var(--accent),var(--accent-2)); color:#042b27;
+  background:linear-gradient(180deg,var(--accent),var(--accent-2)); color:var(--btn-text);
   font-weight:700; font-size:14px; padding:10px 20px; box-shadow:0 0 0 rgba(77,214,193,0);
 }
 .btn-primary:hover{ box-shadow:0 4px 18px var(--glow); transform:translateY(-1px); }
@@ -165,6 +199,15 @@ button{ font-family:"Sora", system-ui, sans-serif; cursor:pointer; border:none; 
 .bottom-bar .left{ display:flex; align-items:center; gap:10px; }
 .bottom-bar .right{ display:flex; align-items:center; gap:14px; }
 .bottom-bar .ver-label{ font-family:"JetBrains Mono",monospace; font-size:11px; color:var(--text-faint); }
+.bottom-bar .update-msg{
+  position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+  font-family:"JetBrains Mono",monospace; font-size:11px; color:var(--text-dim);
+  white-space:nowrap; max-width:55%; overflow:hidden; text-overflow:ellipsis;
+  opacity:0; pointer-events:none; transition:opacity .3s;
+}
+.bottom-bar .update-msg.show{ opacity:1; pointer-events:auto; }
+.bottom-bar .update-msg a{ color:var(--accent); text-decoration:none; }
+.bottom-bar .update-msg a:hover{ text-decoration:underline; }
 
 /* pill toggle */
 .tog-wrap{ display:flex; align-items:center; gap:8px; cursor:pointer; user-select:none; }
@@ -183,6 +226,66 @@ button{ font-family:"Sora", system-ui, sans-serif; cursor:pointer; border:none; 
   background:var(--text-faint); transition:transform .2s, background .2s;
 }
 .tog input:checked ~ .tog-thumb{ transform:translateX(16px); background:#042b27; }
+
+/* toggle keeps its place after Clear; reserved label width keeps the info icon from moving when toggled */
+#rt-wrap{ flex-shrink:0; white-space:nowrap; }
+#rt-label{ min-width:100px; }
+
+/* amber variant for rate-test toggle */
+.tog-amber .tog input:checked ~ .tog-track{ background:var(--amber); border-color:var(--amber); }
+.tog-amber .tog input:checked ~ .tog-thumb{ background:#3a2800; }
+.tog-amber .tog-label{ transition:color .2s; }
+.tog-amber.armed .tog-label{ color:var(--amber); }
+
+/* info icon (small circled "i") */
+.info-btn{
+  display:inline-flex; align-items:center; justify-content:center;
+  width:18px; height:18px; border-radius:50%;
+  background:transparent; border:1px solid var(--border-2);
+  color:var(--text-faint); font-size:11px; font-weight:700; font-style:italic;
+  cursor:pointer; transition:border-color .15s, color .15s;
+  margin-left:2px; vertical-align:middle; line-height:1;
+  font-family:"Sora",system-ui,sans-serif;
+}
+.info-btn:hover{ border-color:var(--accent); color:var(--text); }
+
+/* confirmation modal */
+.modal-overlay{
+  position:fixed; inset:0; background:rgba(0,0,0,0.55);
+  display:flex; align-items:center; justify-content:center;
+  z-index:200; opacity:0; pointer-events:none; transition:opacity .2s;
+}
+.modal-overlay.open{ opacity:1; pointer-events:auto; }
+.modal-card{
+  background:var(--panel); border:1px solid var(--border-2); border-radius:var(--radius);
+  padding:24px 28px; max-width:480px; width:90%;
+  box-shadow:0 12px 40px rgba(0,0,0,0.5);
+}
+.modal-card h3{
+  font-size:16px; font-weight:700; margin:0 0 14px; color:var(--text);
+}
+.modal-card p{
+  font-size:13px; color:var(--text-dim); line-height:1.55; margin:0 0 20px;
+}
+.modal-btns{ display:flex; gap:10px; justify-content:flex-end; }
+.modal-btn{
+  font-family:"Sora",system-ui,sans-serif; cursor:pointer; border:none;
+  border-radius:var(--radius-sm); font-size:13px; font-weight:600; padding:9px 18px;
+  transition:transform .15s, box-shadow .15s;
+}
+.modal-btn:hover{ transform:translateY(-1px); }
+.modal-btn-primary{
+  background:linear-gradient(180deg,var(--accent),var(--accent-2)); color:var(--btn-text);
+}
+.modal-btn-primary:hover{ box-shadow:0 4px 18px var(--glow); }
+.modal-btn-amber{
+  background:var(--amber); color:#2a1f00;
+}
+.modal-btn-amber:hover{ box-shadow:0 4px 18px rgba(240,184,96,0.35); }
+.modal-btn-ghost{
+  background:transparent; color:var(--text-dim); border:1px solid var(--border-2);
+}
+.modal-btn-ghost:hover{ border-color:var(--accent); color:var(--text); }
 
 .btn-update{
   font-family:"Sora",system-ui,sans-serif; cursor:pointer;
@@ -209,10 +312,19 @@ button{ font-family:"Sora", system-ui, sans-serif; cursor:pointer; border:none; 
       <div class="by">by JDE-Projects</div>
       <a class="ghl" id="bylink" href="https://github.com/JDE-Projects" onclick="return openExt('https://github.com/JDE-Projects')">github.com/JDE-Projects</a>
     </div>
-    <div class="meta">
-      <div class="ver" id="ver">Powered by ssh-audit</div>
-      <a id="ghlink" href="https://github.com/jtesta/ssh-audit" onclick="return openExt('https://github.com/jtesta/ssh-audit')">github.com/jtesta/ssh-audit</a>
-      <div id="update" class="ver" style="margin-top:6px"></div>
+    <div class="head-right">
+      <button class="theme-btn" id="theme-btn" onclick="toggleTheme()" title="Toggle theme">
+        <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+          <circle cx="12" cy="12" r="4"/>
+          <path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19"/>
+        </svg>
+        <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>
+        </svg>
+      </button>
+      <div class="meta">
+        <div class="ver" id="ver">Powered by <a href="https://github.com/jtesta/ssh-audit" onclick="return openExt('https://github.com/jtesta/ssh-audit')">ssh-audit</a></div>
+      </div>
     </div>
   </header>
 
@@ -228,6 +340,15 @@ button{ font-family:"Sora", system-ui, sans-serif; cursor:pointer; border:none; 
       </div>
       <button class="btn-primary" id="run">Run Audit</button>
       <button class="btn-ghost" id="clear">Clear</button>
+      <label class="tog-wrap tog-amber" id="rt-wrap" for="ratetest">
+        <span class="tog">
+          <input type="checkbox" id="ratetest">
+          <span class="tog-track"></span>
+          <span class="tog-thumb"></span>
+        </span>
+        <span class="tog-label" id="rt-label">DoS check: Off</span>
+        <span class="info-btn" id="ratetest-info" title="What is this?">i</span>
+      </label>
     </div>
   </div>
 
@@ -235,6 +356,14 @@ button{ font-family:"Sora", system-ui, sans-serif; cursor:pointer; border:none; 
 </div>
 
 <div class="toast" id="toast">Report copied to clipboard</div>
+
+<div class="modal-overlay" id="rt-modal">
+  <div class="modal-card">
+    <h3 id="rt-modal-title">Run DoS resilience check?</h3>
+    <p id="rt-modal-body">When on, the audit opens dozens of rapid connections to test whether the server is vulnerable to the DHEat denial-of-service attack (CVE-2002-20001). This can look like an attack: it may trigger rate-limiting, fail2ban, or intrusion detection and temporarily block your IP, generate many log entries, and slow the audit. Only enable it for servers you own or are authorized to test this way.</p>
+    <div class="modal-btns" id="rt-modal-btns"></div>
+  </div>
+</div>
 
 <div class="bottom-bar">
   <div class="left">
@@ -247,8 +376,9 @@ button{ font-family:"Sora", system-ui, sans-serif; cursor:pointer; border:none; 
       <span class="tog-label">Debug log</span>
     </label>
   </div>
+  <div class="update-msg" id="update-msg"></div>
   <div class="right">
-    <span class="ver-label" id="ver-bar">v1.0.0</span>
+    <span class="ver-label" id="ver-bar">v1.2.0</span>
     <button class="btn-update" onclick="manualUpdate()">Check for updates</button>
   </div>
 </div>
@@ -261,6 +391,18 @@ let lastReport = "";
 
 const DOT = "\u25CF";
 function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+/* ---------- theme ---------- */
+let currentTheme = "dark";
+function applyTheme(theme){
+  currentTheme = theme;
+  document.body.classList.toggle("light", theme === "light");
+}
+async function toggleTheme(){
+  const next = currentTheme === "light" ? "dark" : "light";
+  applyTheme(next);
+  if(window.pywebview && window.pywebview.api) await window.pywebview.api.save_theme(next);
+}
 
 /* ---------- states ---------- */
 function showWelcome(){
@@ -297,7 +439,7 @@ function dotColor(s){ return s==="fail" ? "var(--red)" : s==="warn" ? "var(--amb
 function algRows(list){
   return list.map(a => {
     const size = a.key_size ? ` <span class="size">(${esc(a.key_size)}-bit)</span>` : "";
-    const reason = a.reason ? ` <span class="reason">\u2014 ${esc(a.reason)}</span>` : "";
+    const reason = a.reason ? `<span class="reason">: ${esc(a.reason)}</span>` : "";
     return `<div class="alg"><span class="dot" style="color:${dotColor(a.status)}">${DOT}</span>`
          + `<span class="name" style="color:${dotColor(a.status)}">${esc(a.name)}</span>${size}${reason}</div>`;
   }).join("");
@@ -306,7 +448,8 @@ function algRows(list){
 function render(r){
   const c = r.counts;
   let html = `<div class="fade">`;
-  html += `<div class="resulthead">Audit complete for ${esc(r.host)}:${esc(r.port)}</div>`;
+  const rtNote = r.rate_test ? " · DoS resilience check: included" : "";
+  html += `<div class="resulthead">Audit complete for ${esc(r.host)}:${esc(r.port)}${rtNote}</div>`;
 
   // grade + summary
   html += `<div class="gradewrap">
@@ -383,6 +526,7 @@ function buildReport(r){
   L.push(`Host: ${r.host}:${r.port}`);
   L.push(`Grade: ${r.grade}`);
   L.push(`Summary: ${r.counts.fails} failures, ${r.counts.warns} warnings, ${r.counts.goods} secure`);
+  if(r.rate_test) L.push("DoS resilience check: included");
   L.push("");
   if(r.checklist && r.checklist.length){
     L.push("SECURITY CHECKLIST"); L.push("-".repeat(18));
@@ -449,7 +593,7 @@ async function runAudit(){
 
   busy = true; $("run").disabled = true; showScanning(host, port);
   try{
-    const r = await window.pywebview.api.run_audit(host, port);
+    const r = await window.pywebview.api.run_audit(host, port, $("ratetest").checked);
     if(!r || !r.ok){ showError("Unable to complete audit", r ? r.error : "Unknown error"); }
     else { render(r); }
   }catch(e){
@@ -467,9 +611,6 @@ $("port").addEventListener("keydown", e => { if(e.key==="Enter") runAudit(); });
 
 function initVersion(){
   if(!(window.pywebview && window.pywebview.api)) return;
-  window.pywebview.api.ssh_audit_version().then(v => {
-    if(v) $("ver").textContent = "Powered by ssh-audit " + v;
-  }).catch(()=>{});
   window.pywebview.api.check_update().then(r => {
     if(r && r.current) $("ver-bar").textContent = "v" + r.current;
   }).catch(()=>{});
@@ -481,22 +622,97 @@ function openExt(url){
   return false;
 }
 window.openExt = openExt;
-function showUpdate(r){ const u=$("update"); if(!u)return;
-  if(r.update){ u.innerHTML='Update available: v'+r.latest+' \u00b7 <a class="ghl" href="#" onclick="return openExt(\''+r.url+'\')">download</a>'; }
+// Bottom-bar update message. Informational results fade after 5s; an actual
+// available-update notice (with a download link) persists until clicked or rechecked.
+let updTimer = null;
+function showUpdateMsg(html, persist){
+  const u = $("update-msg"); if(!u) return;
+  if(updTimer){ clearTimeout(updTimer); updTimer = null; }
+  u.innerHTML = html;
+  u.classList.add("show");
+  if(!persist){ updTimer = setTimeout(() => u.classList.remove("show"), 5000); }
+}
+function updDownload(url){ openExt(url); const u=$("update-msg"); if(u)u.classList.remove("show"); return false; }
+window.updDownload = updDownload;
+function showUpdate(r){
+  if(r.update){ showUpdateMsg('Update available: v'+r.latest+' \u00b7 <a href="#" onclick="return updDownload(\''+r.url+'\')">download</a>', true); }
 }
 async function manualUpdate(){ if(!(window.pywebview&&window.pywebview.api))return false;
   const r=await window.pywebview.api.check_update();
-  const u=$("update");
-  if(!r||!r.ok){ if(u)u.textContent="Update check failed (offline, or repo not public yet)"; return false; }
-  if(r.update){ showUpdate(r); } else if(u){ u.textContent="You're on the latest version (v"+r.current+")"; }
+  if(!r||!r.ok){ showUpdateMsg("Update check failed (offline, or repo not public yet)", false); return false; }
+  if(r.update){ showUpdate(r); } else { showUpdateMsg("You're on the latest version (v"+r.current+")", false); }
   return false; }
 window.manualUpdate=manualUpdate;
 function initDebug(){ const d=$("dbg"); if(!d)return;
   d.addEventListener("change", async()=>{ if(window.pywebview&&window.pywebview.api){ await window.pywebview.api.set_debug(d.checked); } }); }
+
+/* ---------- rate-test toggle + modal ---------- */
+function rtModal(mode){
+  // mode: "arm" (toggle OFF->ON), "info-on" (info while armed), "info-off" (info while off)
+  const overlay = $("rt-modal");
+  const title   = $("rt-modal-title");
+  const btns    = $("rt-modal-btns");
+  // Body text is always the same explanation; title changes.
+  if(mode === "arm"){
+    title.textContent = "Run DoS resilience check?";
+    btns.innerHTML =
+      '<button class="modal-btn modal-btn-ghost" id="rt-cancel">Cancel</button>' +
+      '<button class="modal-btn modal-btn-amber" id="rt-proceed">Proceed</button>';
+    overlay.classList.add("open");
+    $("rt-proceed").addEventListener("click", () => { overlay.classList.remove("open"); rtApply(true); });
+    $("rt-cancel").addEventListener("click",  () => { overlay.classList.remove("open"); rtApply(false); });
+  } else if(mode === "info-on"){
+    title.textContent = "DoS resilience check";
+    btns.innerHTML =
+      '<button class="modal-btn modal-btn-ghost" id="rt-off">Turn off</button>' +
+      '<button class="modal-btn modal-btn-primary" id="rt-keep">Keep enabled</button>';
+    overlay.classList.add("open");
+    $("rt-keep").addEventListener("click", () => { overlay.classList.remove("open"); });
+    $("rt-off").addEventListener("click",  () => { overlay.classList.remove("open"); rtApply(false); });
+  } else {
+    title.textContent = "DoS resilience check";
+    btns.innerHTML =
+      '<button class="modal-btn modal-btn-primary" id="rt-gotit">Got it</button>';
+    overlay.classList.add("open");
+    $("rt-gotit").addEventListener("click", () => { overlay.classList.remove("open"); });
+  }
+}
+function rtApply(on){
+  const cb = $("ratetest");
+  const wrap = $("rt-wrap");
+  const label = $("rt-label");
+  cb.checked = on;
+  if(on){ wrap.classList.add("armed"); label.textContent = "DoS check: On"; }
+  else  { wrap.classList.remove("armed"); label.textContent = "DoS check: Off"; }
+}
+function initRateTest(){
+  const cb = $("ratetest");
+  if(!cb) return;
+  cb.addEventListener("change", () => {
+    if(cb.checked){
+      // User turned it ON: revert immediately, show confirmation first.
+      cb.checked = false;
+      rtModal("arm");
+    } else {
+      // User turned it OFF: immediate, no popup.
+      rtApply(false);
+    }
+  });
+  $("ratetest-info").addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    rtModal(($("ratetest").checked) ? "info-on" : "info-off");
+  });
+}
+
 async function quietUpdate(){ if(!(window.pywebview&&window.pywebview.api))return;
   try{ const r=await window.pywebview.api.check_update(); if(r&&r.ok&&r.update) showUpdate(r); }catch(e){} }
+async function initTheme(){ if(!(window.pywebview&&window.pywebview.api))return;
+  try{ const t=await window.pywebview.api.get_theme(); applyTheme(t||"dark"); }catch(e){} }
+window.addEventListener("pywebviewready", initTheme);
 window.addEventListener("pywebviewready", initVersion);
 window.addEventListener("pywebviewready", initDebug);
+window.addEventListener("pywebviewready", initRateTest);
 window.addEventListener("pywebviewready", quietUpdate);
 
 showWelcome();

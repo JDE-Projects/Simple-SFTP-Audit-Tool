@@ -10,5 +10,5 @@ pyinstaller==6.21.0
 # commit for a reproducible build. Dependabot does NOT auto-update git URLs.
 # REBUILD/UPDATE: before bumping this SHA, review ssh-audit master diffs since it
 # for anything malicious or breaking, confirm `main`/`VERSION` still import, then
-# bump. See README "Keeping ssh-audit current". Pinned 2026-06-17 to 2026-06-14 master.
-ssh-audit @ git+https://github.com/jtesta/ssh-audit.git@e42d993b07cc0067c01d77ec192c5c24ed4510c5
+# bump. See README "Keeping ssh-audit current". Pinned 2026-06-22 to 2026-06-20 master (1eb1105).
+ssh-audit @ git+https://github.com/jtesta/ssh-audit.git@1eb11050b3176f0afc6ecda5b63809b787d77f7b

@@ -17,13 +17,25 @@ Build the .exe:    Build_Simple_SFTP_Audit_Tool.bat
 import io
 import os
 import re
+import socket
 import sys
 import threading
 import time
+import traceback
 import json
 from datetime import datetime
 from urllib.request import Request, urlopen
 from contextlib import redirect_stdout, redirect_stderr
+
+# ssh-audit's DHEat rate test references socket.AF_UNIX unconditionally (an upstream
+# bug present from its UNIX-socket-scanning feature through current master). That
+# constant does not exist on Windows, so merely reading it crashes the rate test.
+# We only ever audit TCP host:port targets, never UNIX-domain sockets, so that code
+# branch is never legitimately taken. Define a harmless sentinel that no real address
+# family equals, so the comparison evaluates False instead of raising. Remove if/when
+# upstream guards the reference.
+if not hasattr(socket, "AF_UNIX"):
+    socket.AF_UNIX = -1
 
 # Force the LGPL Qt binding (PySide6) so qtpy never picks up PyQt6 (GPL).
 # setdefault leaves an explicit override in place if one is ever set.
@@ -31,7 +43,7 @@ os.environ.setdefault("QT_API", "pyside6")
 
 import webview
 
-APP_VERSION = "1.1.0"
+APP_VERSION = "1.2.0"
 GITHUB_REPO = "JDE-Projects/Simple-SFTP-Audit-Tool"  # owner/repo for update checks
 
 APP_ID = "JDEProjects.SimpleSFTPAuditTool"
@@ -64,11 +76,14 @@ def _clean(line):
 # --------------------------------------------------------------------------- #
 # ssh-audit run + parse  (logic ported from the tested tkinter version)
 # --------------------------------------------------------------------------- #
-def _run_ssh_audit(host, port):
+def _run_ssh_audit(host, port, rate_test=False):
     """Run ssh-audit in-process; return its raw text output (or '')."""
     from ssh_audit.ssh_audit import main as audit_main
 
-    args = ["ssh-audit", "-v", "-4", "-t", "10", "-p", str(port), host]
+    args = ["ssh-audit", "-v", "-4", "-t", "10", "-p", str(port)]
+    if not rate_test:
+        args.append("--skip-rate-test")
+    args.append(host)
     original_argv = sys.argv
     sys.argv = args
     try:
@@ -346,8 +361,7 @@ class Api:
         except Exception:
             return False
 
-    def run_audit(self, host, port):
-        debug.log("AUDIT", {"host": host, "port": port})
+    def run_audit(self, host, port, rate_test=False):
         """Called from the page. Returns a parsed result dict (or an error)."""
         host = (host or "").strip()
         try:
@@ -357,34 +371,107 @@ class Api:
         if not host:
             return {"ok": False, "error": "Please enter a hostname or IP address."}
 
+        rate_test = bool(rate_test)
+        debug.log("AUDIT", {"host": host, "port": port, "rate_test": rate_test})
+
+        # Run the ssh-audit engine and capture its output.
+        engine_error = False
         try:
-            output = _run_ssh_audit(host, port)
+            output = _run_ssh_audit(host, port, rate_test)
         except ImportError as e:
-            return {"ok": False, "error": f"ssh-audit library not found: {e}"}
+            return {"ok": False, "error": "ssh-audit library not found: %s" % e}
         except Exception:
+            tb = traceback.format_exc()
+            debug.log("SSH-AUDIT EXCEPTION", tb)
+            engine_error = True
             output = ""
 
-        if not output.strip() or ("kex" not in output.lower() and "key" not in output.lower()):
-            return {"ok": False,
-                    "error": f"Could not connect to {host}:{port}. "
-                             f"Can you reach this SFTP server from this machine and public IP?",
-                    "host": host, "port": port}
+        debug.log("SSH-AUDIT RAW OUTPUT (len=%d)" % len(output), output)
 
+        # Parse the output and classify the result.
         parsed = _parse(output)
         fails, warns, goods = _counts(parsed)
-        grade, color = _grade(fails, warns, goods)
-        return {
-            "ok": True, "host": host, "port": port,
-            "grade": grade, "grade_color": color,
-            "counts": {"fails": fails, "warns": warns, "goods": goods},
-            "software": parsed["software"], "os": parsed["os"],
-            "compression": parsed["compression"],
-            "security_issues": parsed["security_issues"],
-            "checklist": _checklist(parsed),
-            "sections": {k: parsed[k] for k in ("kex", "key", "enc", "mac")},
-            "recommendations": parsed["recommendations"],
-            "fingerprints": parsed["fingerprints"],
-        }
+        total = fails + warns + goods
+        has_banner = bool(parsed["software"])
+
+        if total > 0:
+            grade, color = _grade(fails, warns, goods)
+            debug.log("AUDIT CLASSIFICATION", {
+                "decision": "graded", "grade": grade,
+                "fails": fails, "warns": warns, "goods": goods,
+            })
+            return {
+                "ok": True, "host": host, "port": port,
+                "grade": grade, "grade_color": color,
+                "counts": {"fails": fails, "warns": warns, "goods": goods},
+                "software": parsed["software"], "os": parsed["os"],
+                "compression": parsed["compression"],
+                "security_issues": parsed["security_issues"],
+                "checklist": _checklist(parsed),
+                "sections": {k: parsed[k] for k in ("kex", "key", "enc", "mac")},
+                "recommendations": parsed["recommendations"],
+                "fingerprints": parsed["fingerprints"],
+                "rate_test": rate_test,
+            }
+
+        if has_banner:
+            msg = (
+                "Audit could not complete. "
+                + host + ":" + str(port)
+                + " responded with a banner ("
+                + parsed["software"]
+                + ") but returned no algorithm data, then closed the connection. "
+                "The server may be throttling or refusing the full handshake. "
+                "Try again, or test a server you control."
+            )
+            debug.log("AUDIT CLASSIFICATION", {
+                "decision": "banner_only", "software": parsed["software"],
+            })
+            return {"ok": False, "error": msg, "host": host, "port": port}
+
+        # No banner, empty output or engine error.
+        if engine_error:
+            msg = (
+                "The scan engine hit an error while auditing "
+                + host + ":" + str(port)
+                + ". Enable the Debug log and re-run to capture details."
+            )
+        else:
+            msg = (
+                "Could not connect to " + host + ":" + str(port)
+                + ". Can you reach this SFTP server from this machine and public IP?"
+            )
+        debug.log("AUDIT CLASSIFICATION", {
+            "decision": "engine_error" if engine_error else "no_response",
+        })
+        return {"ok": False, "error": msg, "host": host, "port": port}
+
+    # --- theme preference (local file next to the app) ---------------------
+    def _pref_path(self):
+        return os.path.join(_exe_dir(), "simple_sftp_audit_tool.pref")
+
+    def _load_theme(self):
+        try:
+            with open(self._pref_path(), "r", encoding="utf-8") as f:
+                theme = json.load(f).get("theme")
+            return theme if theme in ("dark", "light") else "dark"
+        except Exception:
+            return "dark"
+
+    def get_theme(self):
+        return self._load_theme()
+
+    def save_theme(self, theme):
+        if theme not in ("dark", "light"):
+            return {"ok": False}
+        try:
+            with open(self._pref_path(), "w", encoding="utf-8") as f:
+                json.dump({"theme": theme}, f)
+            debug.log("Theme set to %s" % theme)
+            return {"ok": True}
+        except Exception as e:
+            debug.log("Could not save theme pref: %s" % e)
+            return {"ok": False}
 
     def ssh_audit_version(self):
         try:
