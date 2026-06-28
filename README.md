@@ -6,6 +6,14 @@ Built by [JDE-Projects](https://github.com/JDE-Projects).
 
 If you enjoyed this project and would like to buy me a coffee, check out my [Ko-fi](https://ko-fi.com/jdeprojects).
 
+## Preview
+
+<p align="center">
+  <img src="screenshots/sftp-audit-light-dark.png" width="900"
+       alt="Simple SFTP Audit Tool in dark and light themes">
+  <br><em>Dark and light themes</em>
+</p>
+
 ## Highlights
 
 - **At-a-glance grade.** Every scan returns an overall A+ to F grade plus a count of failures, warnings, and secure items.
