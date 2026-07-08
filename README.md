@@ -37,9 +37,18 @@ Two ways to get it from the [Releases](../../releases) page - pick one:
 
 Windows only, no Python or setup required. Because it is unsigned, Windows SmartScreen may warn about an unknown publisher the first time. Click **More info > Run anyway**.
 
+## Updating
+
+Simple SFTP Audit Tool doesn't update itself. The bottom bar has a **Check for updates** button that tells you when a newer release is out; when it does, get the new version from the [Releases](../../releases) page the same way you first installed it.
+
+- **Installer:** download the new `SimpleSFTPAuditTool-vX.Y.Z-setup.exe` and run it. It installs over your current copy.
+- **Portable .zip:** download the new `SimpleSFTPAuditTool-vX.Y.Z.zip` and extract it, replacing the old folder.
+
+The tool stores nothing on disk, so there's nothing to carry over. The check is silent if you're offline.
+
 ## Verify this download (optional)
 
-This release was built on GitHub from this public source - not on a personal machine - and is signed with a build-provenance attestation. To confirm a download is genuine, install the [GitHub CLI](https://cli.github.com) and run:
+This release was built on GitHub from this public source, not on a personal machine, and is signed with a build-provenance attestation. To confirm your download is genuine, install the [GitHub CLI](https://cli.github.com) and run:
 
 ```
 gh attestation verify SimpleSFTPAuditTool-vX.Y.Z.zip \
@@ -52,7 +61,7 @@ A `Verification succeeded!` line means the file was built by the published pipel
 ## Build from source (optional)
 
 - Python 3 on PATH.
-- `pip install -r requirements.txt` (pinned versions: PySide6, pywebview, qtpy, PyInstaller, and ssh-audit at a specific GitHub master commit — needs Git installed)
+- `pip install -r requirements.txt` (pinned versions: PySide6, pywebview, qtpy, PyInstaller, and ssh-audit at a specific GitHub master commit, which needs Git installed)
 
 Keep `simple_sftp_audit_tool.py`, `simple_sftp_audit_tool-UI.html`, the `fonts/` folder, `simple_sftp_audit_tool.ico`, `simple_sftp_audit_tool.png`, and `simple_sftp_audit_tool-splash.png` together (the app loads the UI, fonts, and icon next to itself). Then either:
 
@@ -63,7 +72,7 @@ Keep `simple_sftp_audit_tool.py`, `simple_sftp_audit_tool-UI.html`, the `fonts/`
 
 The scanning engine is [ssh-audit](https://github.com/jtesta/ssh-audit). Its PyPI release lags well behind active development, so the build bundles ssh-audit from the project's **master** branch to get current algorithm coverage and post-quantum advisories. Building from master needs [Git](https://git-scm.com) on the build machine (not on end users).
 
-For a reproducible, verifiable build, `requirements.txt` pins ssh-audit to one **exact master commit** rather than floating on whatever master is at build time. Before that pin is moved to a newer commit, the changes on ssh-audit's master since the pinned commit are reviewed for anything malicious or breaking and the tool's entry points are re-confirmed — *then* the commit is bumped and a new release built. So every release bundles a known, reviewed snapshot of ssh-audit, not an unaudited moving target.
+For a reproducible, verifiable build, `requirements.txt` pins ssh-audit to one **exact master commit** rather than floating on whatever master is at build time. Before that pin is moved to a newer commit, the changes on ssh-audit's master since the pinned commit are reviewed for anything malicious or breaking and the tool's entry points are re-confirmed. Only *then* is the commit bumped and a new release built. So every release bundles a known, reviewed snapshot of ssh-audit, not an unaudited moving target.
 
 ## Using it
 
@@ -90,16 +99,11 @@ A few things worth knowing:
 - Nothing is written to disk. There is no config or data file. The only output is the on-screen result and the report you choose to copy to the clipboard.
 - No credentials are used or stored. The tool never logs into the server.
 - Only scan servers you own or are authorized to test.
+- The debug log is off by default. Toggle it in the footer to write `Debug_Log_MMDDYYYY_HHMMSS.txt` next to the app for the current run.
 
 ## A note on how this was built
 
 This project was built with AI assistance. The design decisions, feature direction, and real-world testing were directed by me. The code was written and revised with an AI assistant against that direction. Treat it like any community tool: review and test it before relying on it.
-
-## Updates
-Use Check for Updates (footer) to compare against the latest GitHub Release; if newer, it links you to the download. Silent when offline or while the repo is private.
-
-## Debug log
-Off by default. Toggle it in the footer to write `Debug_Log_MMDDYYYY_HHMMSS.txt` next to the app for the current run.
 
 ## License
 
