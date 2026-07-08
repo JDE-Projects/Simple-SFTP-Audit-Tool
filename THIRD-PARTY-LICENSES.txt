@@ -19,7 +19,7 @@ Copyright notices
 -----------------
 Sora            Copyright 2019 The Sora Project Authors
 JetBrains Mono  Copyright 2020 The JetBrains Mono Project Authors
-ssh-audit       Copyright 2017-2024 Joe Testa
+ssh-audit       Copyright 2017-2026 Joe Testa
 
 Notes
 -----

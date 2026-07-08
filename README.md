@@ -61,7 +61,7 @@ A `Verification succeeded!` line means the file was built by the published pipel
 ## Build from source (optional)
 
 - Python 3 on PATH.
-- `pip install -r requirements.txt` (pinned versions: PySide6, pywebview, qtpy, PyInstaller, and ssh-audit at a specific GitHub master commit, which needs Git installed)
+- `pip install -r requirements.txt` (pinned versions: PySide6, pywebview, qtpy, PyInstaller, and ssh-audit)
 
 Keep `simple_sftp_audit_tool.py`, `simple_sftp_audit_tool-UI.html`, the `fonts/` folder, `simple_sftp_audit_tool.ico`, `simple_sftp_audit_tool.png`, and `simple_sftp_audit_tool-splash.png` together (the app loads the UI, fonts, and icon next to itself). Then either:
 
@@ -70,9 +70,9 @@ Keep `simple_sftp_audit_tool.py`, `simple_sftp_audit_tool-UI.html`, the `fonts/`
 
 ### Keeping ssh-audit current
 
-The scanning engine is [ssh-audit](https://github.com/jtesta/ssh-audit). Its PyPI release lags well behind active development, so the build bundles ssh-audit from the project's **master** branch to get current algorithm coverage and post-quantum advisories. Building from master needs [Git](https://git-scm.com) on the build machine (not on end users).
+The scanning engine is [ssh-audit](https://github.com/jtesta/ssh-audit). It installs from PyPI like the other dependencies, pinned to an exact release in `requirements.txt`. Upstream releases are reviewed before the pin is bumped, so every release of this tool bundles a known, reviewed version of ssh-audit.
 
-For a reproducible, verifiable build, `requirements.txt` pins ssh-audit to one **exact master commit** rather than floating on whatever master is at build time. Before that pin is moved to a newer commit, the changes on ssh-audit's master since the pinned commit are reviewed for anything malicious or breaking and the tool's entry points are re-confirmed. Only *then* is the commit bumped and a new release built. So every release bundles a known, reviewed snapshot of ssh-audit, not an unaudited moving target.
+**Fallback if PyPI goes stale again:** ssh-audit's PyPI releases stalled once before (stuck at 3.3.0 for years while master stayed active). This tool shipped from master during that period, and the method still works if it is ever needed again: pin `requirements.txt` to one exact, reviewed master commit with `ssh-audit @ git+https://github.com/jtesta/ssh-audit.git@<full-commit-sha>`. That form needs [Git](https://git-scm.com) on the build machine (not on end users), and Dependabot does not auto-update git URLs, so the pin must be moved by hand. Before moving it, review every commit on master since the previous pin for anything malicious or breaking, and confirm the tool still imports `main` and `VERSION` from `ssh_audit.ssh_audit`.
 
 ## Using it
 

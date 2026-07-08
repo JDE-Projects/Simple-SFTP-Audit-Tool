@@ -28,7 +28,7 @@ from urllib.request import Request, urlopen
 from contextlib import redirect_stdout, redirect_stderr
 
 # ssh-audit's DHEat rate test references socket.AF_UNIX unconditionally (an upstream
-# bug present from its UNIX-socket-scanning feature through current master). That
+# bug present from its UNIX-socket-scanning feature through v3.9.0). That
 # constant does not exist on Windows, so merely reading it crashes the rate test.
 # We only ever audit TCP host:port targets, never UNIX-domain sockets, so that code
 # branch is never legitimately taken. Define a harmless sentinel that no real address

@@ -6,9 +6,9 @@ PySide6==6.11.1
 qtpy==2.4.3
 pyinstaller==6.21.0
 
-# ssh-audit: pulled from GitHub master (PyPI 3.3.0 is stale), pinned to an exact
-# commit for a reproducible build. Dependabot does NOT auto-update git URLs.
-# REBUILD/UPDATE: before bumping this SHA, review ssh-audit master diffs since it
-# for anything malicious or breaking, confirm `main`/`VERSION` still import, then
-# bump. See README "Keeping ssh-audit current". Pinned 2026-06-22 to 2026-06-20 master (1eb1105).
-ssh-audit @ git+https://github.com/jtesta/ssh-audit.git@1eb11050b3176f0afc6ecda5b63809b787d77f7b
+# ssh-audit is installed from PyPI now that upstream releases there again
+# (current since v3.9.0, 2026-07-04). Dependabot opens review-PRs for it like
+# the other == deps; review upstream changes before merging a bump. If PyPI
+# ever goes stale again, see README "Keeping ssh-audit current" for the
+# reviewed master-commit pin fallback.
+ssh-audit==3.9.0
