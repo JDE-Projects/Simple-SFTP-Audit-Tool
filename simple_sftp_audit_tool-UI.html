@@ -323,7 +323,7 @@ button{ font-family:"Sora", system-ui, sans-serif; cursor:pointer; border:none; 
         </svg>
       </button>
       <div class="meta">
-        <div class="ver" id="ver">Powered by <a href="https://github.com/jtesta/ssh-audit" onclick="return openExt('https://github.com/jtesta/ssh-audit')">ssh-audit</a></div>
+        <div class="ver" id="ver">Powered by <a href="https://github.com/jtesta/ssh-audit" onclick="return openExt('https://github.com/jtesta/ssh-audit')">ssh-audit</a> <span id="engine-ver"></span></div>
       </div>
     </div>
   </header>
@@ -613,6 +613,9 @@ function initVersion(){
   if(!(window.pywebview && window.pywebview.api)) return;
   window.pywebview.api.check_update().then(r => {
     if(r && r.current) $("ver-bar").textContent = "v" + r.current;
+  }).catch(()=>{});
+  window.pywebview.api.ssh_audit_version().then(v => {
+    if(v) $("engine-ver").textContent = v;
   }).catch(()=>{});
 }
 function openExt(url){
