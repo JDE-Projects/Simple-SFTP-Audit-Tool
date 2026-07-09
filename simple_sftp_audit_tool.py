@@ -490,6 +490,32 @@ class Api:
             pass
         return True
 
+    def export_report(self, text):
+        """Save the plain-text report to a file via a native save dialog."""
+        if not isinstance(text, str):
+            return {"ok": False, "error": "Nothing to export"}
+        try:
+            filename = "SSAT_Export_%s.txt" % time.strftime("%Y-%m-%d_%H-%M-%S")
+            try:
+                save_dialog = webview.FileDialog.SAVE
+            except AttributeError:
+                save_dialog = webview.SAVE_DIALOG  # older pywebview
+            result = webview.windows[0].create_file_dialog(
+                save_dialog,
+                save_filename=filename,
+                file_types=("Text file (*.txt)",),
+            )
+            if not result:
+                return {"ok": True, "cancelled": True}
+            path = result if isinstance(result, str) else result[0]
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(text)
+            debug.log("Report exported to %s" % path)
+            return {"ok": True, "path": path}
+        except Exception as e:
+            debug.log("Export failed: %s" % e)
+            return {"ok": False, "error": str(e)}
+
 
 # --------------------------------------------------------------------------- #
 # Splash control (guarded; does nothing in source/dev runs)

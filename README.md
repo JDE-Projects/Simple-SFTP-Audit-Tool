@@ -20,7 +20,7 @@ If you enjoyed this project and would like to buy me a coffee, check out my [Ko-
 - **Plain-language security checklist.** Instead of just listing algorithms, it calls out what matters: SHA-1 signatures, weak key exchange, CBC ciphers, RC4/3DES, MD5 MACs, and whether modern options (Curve25519, Ed25519, AEAD, Encrypt-then-MAC) are present.
 - **Organized by category.** Key exchange, host key, encryption, and MAC algorithms are grouped, each with red/yellow/green status and key sizes where reported.
 - **Server fingerprint and details.** Software banner, detected OS, compression, and host key fingerprints.
-- **One-click report.** Copy a full text report to the clipboard for tickets or records. Nothing is written to disk.
+- **One-click report.** Export a full text report to a file for tickets or records.
 
 ## How it works
 
@@ -79,7 +79,7 @@ The scanning engine is [ssh-audit](https://github.com/jtesta/ssh-audit). It inst
 1. Type the server's hostname or IP in **Host/IP**, and the port in **Port** (default SFTP/SSH is 22). You can also paste `host:port` into the host box and it splits automatically.
 2. Click **Run Audit** (or press Enter).
 3. Read the grade and summary at the top, then scroll for the security checklist, advisories, and per-category algorithm lists. Green is good, yellow is a warning, red is a failure.
-4. Click **Copy Report to Clipboard** for a plain-text version. **Clear** resets the view.
+4. Click **Export Results** to save a plain-text report (SSAT_Export_date_time.txt) wherever you choose. **Clear** resets the view.
 
 ## What it checks
 
@@ -96,7 +96,7 @@ A few things worth knowing:
 
 ## Security and privacy
 
-- Nothing is written to disk. There is no config or data file. The only output is the on-screen result and the report you choose to copy to the clipboard.
+- The only files written are the theme preference file (`simple_sftp_audit_tool.pref`, next to the app) and any report you explicitly choose to export. The tool never logs scans or phones home.
 - No credentials are used or stored. The tool never logs into the server.
 - Only scan servers you own or are authorized to test.
 - The debug log is off by default. Toggle it in the footer to write `Debug_Log_MMDDYYYY_HHMMSS.txt` next to the app for the current run.

@@ -40,6 +40,7 @@ body{
     var(--bg);
   -webkit-font-smoothing:antialiased;
   display:flex; flex-direction:column;
+  padding-bottom:44px; /* keep content and scrollbar clear of the fixed bottom bar */
 }
 body.light {
   background:
@@ -57,7 +58,7 @@ body.light {
 
 .wrap{ max-width:1500px; width:100%; margin:0 auto; padding:22px 26px 0; flex:1 1 auto; display:flex; flex-direction:column; min-height:0; }
 
-#results{ flex:1 1 auto; overflow-y:auto; min-height:0; padding-bottom:64px; }
+#results{ flex:1 1 auto; overflow-y:auto; min-height:0; padding-bottom:20px; }
 
 /* ---- header ---- */
 header{ display:flex; align-items:flex-end; justify-content:space-between; margin-bottom:18px; flex-shrink:0; }
@@ -296,12 +297,13 @@ button{ font-family:"Sora", system-ui, sans-serif; cursor:pointer; border:none; 
 }
 .btn-update:hover{ border-color:var(--accent); color:var(--text); transform:translateY(-1px); }
 .toast{
-  position:fixed; left:50%; bottom:26px; transform:translateX(-50%) translateY(20px);
+  position:fixed; left:50%; bottom:62px; transform:translateX(-50%) translateY(20px);
   background:var(--panel-2); border:1px solid var(--accent); color:var(--text);
   padding:10px 18px; border-radius:999px; font-size:13px; opacity:0; pointer-events:none;
   transition:opacity .2s, transform .2s;
 }
 .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+.toast.err{ border-color:var(--red); }
 </style>
 </head>
 <body>
@@ -355,7 +357,7 @@ button{ font-family:"Sora", system-ui, sans-serif; cursor:pointer; border:none; 
   <div id="results"></div>
 </div>
 
-<div class="toast" id="toast">Report copied to clipboard</div>
+<div class="toast" id="toast"></div>
 
 <div class="modal-overlay" id="rt-modal">
   <div class="modal-card">
@@ -509,12 +511,12 @@ function render(r){
     html += `</div>`;
   }
 
-  html += `<div class="copyrow"><button class="btn-ghost" id="copy">Copy Report to Clipboard</button></div>`;
+  html += `<div class="copyrow"><button class="btn-ghost" id="export">Export Results</button></div>`;
   html += `</div>`;
   results.innerHTML = html;
 
   lastReport = buildReport(r);
-  $("copy").addEventListener("click", copyReport);
+  $("export").addEventListener("click", exportReport);
 }
 
 /* ---------- text report ---------- */
@@ -566,14 +568,38 @@ function buildReport(r){
   }
   return L.join("\n");
 }
-function copyReport(){
-  const done = () => { const t=$("toast"); t.classList.add("show"); setTimeout(()=>t.classList.remove("show"),1600); };
-  if(navigator.clipboard && navigator.clipboard.writeText){
-    navigator.clipboard.writeText(lastReport).then(done).catch(fallbackCopy);
-  } else { fallbackCopy(); }
-  function fallbackCopy(){
-    const ta=document.createElement("textarea"); ta.value=lastReport; document.body.appendChild(ta);
-    ta.select(); try{ document.execCommand("copy"); }catch(e){} document.body.removeChild(ta); done();
+let exporting = false;
+async function exportReport(){
+  if(exporting) return;
+  exporting = true;
+  const btn = $("export");
+  if(btn) btn.disabled = true;
+  try{
+    const r = await window.pywebview.api.export_report(lastReport);
+    if(r && r.cancelled){
+      // user cancelled the save dialog, no toast
+    } else if(r && r.ok){
+      const t=$("toast");
+      t.classList.remove("err");
+      t.textContent = "Report exported";
+      t.classList.add("show");
+      setTimeout(()=>t.classList.remove("show"),1600);
+    } else {
+      const t=$("toast");
+      t.textContent = "Export failed: " + (r ? r.error : "unknown error");
+      t.classList.add("err");
+      t.classList.add("show");
+      setTimeout(()=>t.classList.remove("show"),4000);
+    }
+  } catch(e){
+    const t=$("toast");
+    t.textContent = "Export failed: " + e;
+    t.classList.add("err");
+    t.classList.add("show");
+    setTimeout(()=>t.classList.remove("show"),4000);
+  } finally {
+    exporting = false;
+    if(btn) btn.disabled = false;
   }
 }
 
