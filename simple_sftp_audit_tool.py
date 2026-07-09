@@ -43,7 +43,7 @@ os.environ.setdefault("QT_API", "pyside6")
 
 import webview
 
-APP_VERSION = "1.3.0"
+APP_VERSION = "1.4.0"
 GITHUB_REPO = "JDE-Projects/Simple-SFTP-Audit-Tool"  # owner/repo for update checks
 
 APP_ID = "JDEProjects.SimpleSFTPAuditTool"
