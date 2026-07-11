@@ -14,6 +14,7 @@ Run from source:  python simple_sftp_audit_tool.py
 Build the .exe:    Build_Simple_SFTP_Audit_Tool.bat
 """
 
+import ctypes
 import io
 import os
 import re
@@ -43,7 +44,7 @@ os.environ.setdefault("QT_API", "pyside6")
 
 import webview
 
-APP_VERSION = "1.4.0"
+APP_VERSION = "1.5.0"
 GITHUB_REPO = "JDE-Projects/Simple-SFTP-Audit-Tool"  # owner/repo for update checks
 
 APP_ID = "JDEProjects.SimpleSFTPAuditTool"
@@ -542,10 +543,41 @@ def _start_splash_closer(loaded_event):
     threading.Thread(target=closer, daemon=True).start()
 
 
+_mutex_handle = None   # module-level: must live for the process lifetime
+
+def _acquire_single_instance(mutex_name: str) -> bool:
+    # Name convention: "JDE_Simple{Thing}Tool_SingleInstance"
+    # Session-local (no "Global\" prefix): each Windows session (e.g. RDP,
+    # fast user switching) gets its own instance instead of colliding across users.
+    global _mutex_handle
+    try:
+        # use_last_error=True: ctypes.windll's GetLastError() can be clobbered
+        # by ctypes-internal calls, so read the error via ctypes.get_last_error() instead.
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        _mutex_handle = kernel32.CreateMutexW(None, False, mutex_name)
+        return ctypes.get_last_error() != 183   # ERROR_ALREADY_EXISTS
+    except Exception:
+        return True   # fail open: never block launch over a mutex error
+
+def _prompt_second_instance(app_title: str) -> bool:
+    # Native message box only: runs before pywebview/Qt exists, so no Qt dialog is available yet.
+    try:
+        text = f"{app_title} is already running.\n\nOpen a second instance?"
+        MB_YESNO_ICONQUESTION = 0x00000024
+        result = ctypes.windll.user32.MessageBoxW(None, text, app_title, MB_YESNO_ICONQUESTION)
+        return result == 6   # IDYES
+    except Exception:
+        return True   # fail open: if the box can't be shown, launch proceeds
+
+
 # --------------------------------------------------------------------------- #
 # Entry point
 # --------------------------------------------------------------------------- #
 def main():
+    if not _acquire_single_instance("JDE_SimpleSFTPAuditTool_SingleInstance"):
+        if not _prompt_second_instance("Simple SFTP Audit Tool"):
+            sys.exit(0)
+
     if sys.platform == "win32":
         try:
             import ctypes
