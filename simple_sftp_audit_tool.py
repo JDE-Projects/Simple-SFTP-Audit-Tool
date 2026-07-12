@@ -113,25 +113,35 @@ def _parse(output):
             continue
 
         if clean.startswith("# general"):
-            section = "general"; continue
+            section = "general"
+            continue
         elif clean.startswith("# key exchange algorithms"):
-            section = "kex"; continue
+            section = "kex"
+            continue
         elif clean.startswith("# host-key algorithms"):
-            section = "key"; continue
+            section = "key"
+            continue
         elif clean.startswith("# encryption algorithms"):
-            section = "enc"; continue
+            section = "enc"
+            continue
         elif clean.startswith("# message authentication"):
-            section = "mac"; continue
+            section = "mac"
+            continue
         elif clean.startswith("# fingerprints"):
-            section = "fingerprints"; continue
+            section = "fingerprints"
+            continue
         elif clean.startswith("# algorithm recommendations"):
-            section = "recommendations"; continue
+            section = "recommendations"
+            continue
         elif clean.startswith("# additional info"):
-            section = "additional"; continue
+            section = "additional"
+            continue
         elif clean.startswith("# compression"):
-            section = "compression"; continue
+            section = "compression"
+            continue
         elif clean.startswith("#"):
-            section = None; continue
+            section = None
+            continue
 
         if section == "general":
             if "(gen)" in clean:
@@ -300,7 +310,9 @@ def _exe_dir():
 
 class DebugLog:
     def __init__(self):
-        self._on = False; self._path = None; self._lock = threading.Lock()
+        self._on = False
+        self._path = None
+        self._lock = threading.Lock()
     def set_enabled(self, on):
         with self._lock:
             on = bool(on)
@@ -310,8 +322,11 @@ class DebugLog:
                     with open(self._path, "w", encoding="utf-8") as f:
                         f.write("=== Simple SFTP Audit Tool debug log ===\n")
                 except Exception:
-                    self._path = None; self._on = False; return False
-            self._on = on; return True
+                    self._path = None
+                    self._on = False
+                    return False
+            self._on = on
+            return True
     def is_enabled(self):
         return self._on
     def log(self, label, content=""):
@@ -354,8 +369,10 @@ class Api:
         def parts(v):
             out = []
             for x in v.split("."):
-                try: out.append(int(x))
-                except ValueError: out.append(0)
+                try:
+                    out.append(int(x))
+                except ValueError:
+                    out.append(0)
             return out + [0] * (3 - len(out))
         try:
             return parts(latest) > parts(current)
