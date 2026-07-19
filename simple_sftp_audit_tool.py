@@ -15,6 +15,7 @@ Build the .exe:    Build_Simple_SFTP_Audit_Tool.bat
 """
 
 import ctypes
+from ctypes import wintypes
 import io
 import os
 import re
@@ -308,6 +309,108 @@ def _exe_dir():
     return os.path.dirname(os.path.abspath(__file__))
 
 
+# ----------------------------------------------------------------------------
+# Local prefs store. One JSON file next to the app holds EVERY persisted
+# setting: theme, window geometry, and anything added later. Always read-
+# merge-write through load_prefs / save_prefs. Never overwrite the file with
+# a single key, or the next setting you add silently wipes the others.
+# ----------------------------------------------------------------------------
+
+def _pref_path() -> str:
+    return os.path.join(_exe_dir(), "simple_sftp_audit_tool.pref")
+
+
+def load_prefs() -> dict:
+    """Load the full prefs dict. Tolerant of a missing or corrupt file."""
+    try:
+        with open(_pref_path(), "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def save_prefs(prefs: dict) -> bool:
+    try:
+        with open(_pref_path(), "w", encoding="utf-8") as f:
+            json.dump(prefs, f)
+        return True
+    except Exception:
+        return False
+
+
+# Window geometry persistence. Save and restore the ABSOLUTE window frame
+# rectangle via Win32, found by the window title. GetWindowRect (save) and
+# SetWindowPos (restore) share one frame-based, physical-pixel coordinate
+# space, so the rect round-trips exactly at any DPI or monitor layout. Do NOT
+# pass x/y into create_window and do NOT use window.move: pywebview's Qt
+# backend applies those pre-show and relative to the primary screen, so the
+# window lands on the wrong monitor, drifts down by the title-bar height each
+# launch, and slides sideways at non-100% scaling.
+
+def _win32():
+    u = ctypes.windll.user32
+    u.FindWindowW.restype = wintypes.HWND
+    u.FindWindowW.argtypes = [wintypes.LPCWSTR, wintypes.LPCWSTR]
+    u.GetWindowRect.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.RECT)]
+    u.SetWindowPos.argtypes = [wintypes.HWND, wintypes.HWND, ctypes.c_int, ctypes.c_int,
+                               ctypes.c_int, ctypes.c_int, wintypes.UINT]
+    return u
+
+
+def _save_geometry(win) -> None:
+    """Save the absolute frame rect (physical px) via Win32. Wire to `closing`.
+    Wrapped end to end so a failure here can never block the window from closing."""
+    try:
+        u = _win32()
+        hwnd = u.FindWindowW(None, win.title)
+        if not hwnd:
+            return
+        r = wintypes.RECT()
+        if not u.GetWindowRect(hwnd, ctypes.byref(r)):
+            return
+        x, y, w, h = r.left, r.top, r.right - r.left, r.bottom - r.top
+        if x <= -30000 or y <= -30000:   # minimized sentinel, not a real spot
+            return
+        if w <= 0 or h <= 0:
+            return
+        prefs = load_prefs()
+        prefs["window"] = {"x": x, "y": y, "width": w, "height": h}
+        save_prefs(prefs)
+    except Exception:
+        pass
+
+
+def _restore_geometry(win) -> None:
+    """Restore the saved frame rect via Win32. Wire to `shown` (after the OS
+    window exists). Validate before applying; never raise."""
+    try:
+        geo = load_prefs().get("window")
+        if not isinstance(geo, dict):
+            return
+        x, y, w, h = geo.get("x"), geo.get("y"), geo.get("width"), geo.get("height")
+        for v in (x, y, w, h):
+            if not isinstance(v, int) or isinstance(v, bool):
+                return
+        if w <= 0 or h <= 0:
+            return
+        # Is a point in the title bar still on a connected monitor?
+        point = wintypes.POINT(x + 100, y + 30)
+        user32 = ctypes.windll.user32
+        user32.MonitorFromPoint.argtypes = [wintypes.POINT, wintypes.DWORD]
+        user32.MonitorFromPoint.restype = wintypes.HMONITOR
+        if not user32.MonitorFromPoint(point, 0):   # MONITOR_DEFAULTTONULL
+            return
+        u = _win32()
+        hwnd = u.FindWindowW(None, win.title)
+        if not hwnd:
+            return
+        SWP_NOZORDER, SWP_NOACTIVATE = 0x0004, 0x0010
+        u.SetWindowPos(hwnd, None, x, y, w, h, SWP_NOZORDER | SWP_NOACTIVATE)
+    except Exception:
+        pass
+
+
 class DebugLog:
     def __init__(self):
         self._on = False
@@ -464,32 +567,21 @@ class Api:
         })
         return {"ok": False, "error": msg, "host": host, "port": port}
 
-    # --- theme preference (local file next to the app) ---------------------
-    def _pref_path(self):
-        return os.path.join(_exe_dir(), "simple_sftp_audit_tool.pref")
-
-    def _load_theme(self):
-        try:
-            with open(self._pref_path(), "r", encoding="utf-8") as f:
-                theme = json.load(f).get("theme")
-            return theme if theme in ("dark", "light") else "dark"
-        except Exception:
-            return "dark"
-
+    # --- theme preference (goes through the shared prefs store above) -------
     def get_theme(self):
-        return self._load_theme()
+        theme = load_prefs().get("theme")
+        return theme if theme in ("dark", "light") else "dark"
 
     def save_theme(self, theme):
         if theme not in ("dark", "light"):
             return {"ok": False}
-        try:
-            with open(self._pref_path(), "w", encoding="utf-8") as f:
-                json.dump({"theme": theme}, f)
+        prefs = load_prefs()
+        prefs["theme"] = theme
+        if save_prefs(prefs):
             debug.log("Theme set to %s" % theme)
             return {"ok": True}
-        except Exception as e:
-            debug.log("Could not save theme pref: %s" % e)
-            return {"ok": False}
+        debug.log("Could not save theme pref")
+        return {"ok": False}
 
     def ssh_audit_version(self):
         try:
@@ -613,6 +705,13 @@ def main():
     loaded = threading.Event()
     window.events.loaded += lambda: loaded.set()
     _start_splash_closer(loaded)
+
+    window.events.shown += lambda: _restore_geometry(window)
+
+    def _on_closing():
+        _save_geometry(window)
+        return True
+    window.events.closing += _on_closing
 
     try:
         webview.start(gui="qt", icon=resource_path(ICON_PNG))
