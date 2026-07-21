@@ -7,6 +7,7 @@ build_env/
 # Python
 __pycache__/
 *.pyc
+.venv/
 
 # Personal local launcher (not for distribution)
 Launch_*.bat
