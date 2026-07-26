@@ -65,7 +65,7 @@ A `Verification succeeded!` line means the file was built by the published pipel
 
 Keep `simple_sftp_audit_tool.py`, `simple_sftp_audit_tool-UI.html`, the `fonts/` folder, `simple_sftp_audit_tool.ico`, `simple_sftp_audit_tool.png`, and `simple_sftp_audit_tool-splash.png` together (the app loads the UI, fonts, and icon next to itself). Then either:
 
-- **Run from source:** `python simple_sftp_audit_tool.py` (or double-click `Launch_Simple_SFTP_Audit_Tool.bat`)
+- **Run from source:** `python simple_sftp_audit_tool.py`
 - **Build the app:** double-click `Build_Simple_SFTP_Audit_Tool.bat`, which produces `dist\Simple SFTP Audit Tool\` (a folder containing `Simple SFTP Audit Tool.exe` and its files). Zip that folder to distribute it.
 
 ### Keeping ssh-audit current
