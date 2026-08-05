@@ -61,7 +61,7 @@ A `Verification succeeded!` line means the file was built by the published pipel
 ## Build from source (optional)
 
 - Python 3 on PATH.
-- `pip install -r requirements.txt` (pinned versions: PySide6, pywebview, qtpy, PyInstaller, and ssh-audit)
+- `pip install -r requirements.txt` (pinned versions: PySide6, pywebview, qtpy, PyInstaller, ssh-audit, and truststore)
 
 Keep `simple_sftp_audit_tool.py`, `simple_sftp_audit_tool-UI.html`, the `fonts/` folder, `simple_sftp_audit_tool.ico`, `simple_sftp_audit_tool.png`, and `simple_sftp_audit_tool-splash.png` together (the app loads the UI, fonts, and icon next to itself). Then either:
 
