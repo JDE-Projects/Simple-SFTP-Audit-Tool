@@ -9,6 +9,7 @@ listed sources.
 # Always bundled (every app)
 PySide6 / Qt        LGPL-3.0        qt.io/licensing
 pywebview           BSD-3-Clause    github.com/r0x0r/pywebview
+truststore          MIT             github.com/sethmlarson/truststore
 Sora (font)         OFL-1.1         github.com/sora-xor/sora-font
 JetBrains Mono      OFL-1.1         github.com/JetBrains/JetBrainsMono
 
@@ -19,6 +20,7 @@ Copyright notices
 -----------------
 Sora            Copyright 2019 The Sora Project Authors
 JetBrains Mono  Copyright 2020 The JetBrains Mono Project Authors
+truststore      Copyright 2022 Seth Michael Larson
 ssh-audit       Copyright 2017-2026 Joe Testa
 
 Notes
