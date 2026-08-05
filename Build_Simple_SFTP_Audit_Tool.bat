@@ -69,6 +69,7 @@ python -m PyInstaller --noconfirm --onedir --windowed --name "Simple SFTP Audit 
     --collect-all PySide6 ^
     --collect-all qtpy ^
     --collect-all webview ^
+    --hidden-import truststore ^
     simple_sftp_audit_tool.py
 if errorlevel 1 (
     echo ERROR: Build failed. Read the last lines above for the cause.

@@ -370,6 +370,16 @@ button{ font-family:"Sora", system-ui, sans-serif; cursor:pointer; border:none; 
   </div>
 </div>
 
+<div class="modal-overlay" id="update-err-modal">
+  <div class="modal-card">
+    <h3>Couldn't check for updates</h3>
+    <div id="update-err-msg"></div>
+    <div class="modal-btns">
+      <button class="modal-btn modal-btn-primary" onclick="closeUpdateErrModal()">Close</button>
+    </div>
+  </div>
+</div>
+
 <div class="bottom-bar">
   <div class="left">
     <label class="tog-wrap" for="dbg">
@@ -669,9 +679,21 @@ window.updDownload = updDownload;
 function showUpdate(r){
   if(r.update){ showUpdateMsg('Update available: v'+r.latest+' \u00b7 <a href="#" onclick="return updDownload(\''+r.url+'\')">download</a>', true); }
 }
+function openUpdateErrModal(reason){
+  $('update-err-msg').textContent = reason;
+  $('update-err-modal').classList.add('open');
+}
+function closeUpdateErrModal(){
+  $('update-err-modal').classList.remove('open');
+}
+window.closeUpdateErrModal=closeUpdateErrModal;
 async function manualUpdate(){ if(!(window.pywebview&&window.pywebview.api))return false;
   const r=await window.pywebview.api.check_update();
-  if(!r||!r.ok){ showUpdateMsg("Update check failed (offline, or repo not public yet)", false); return false; }
+  if(!r||!r.ok){
+    showUpdateMsg("Couldn't reach GitHub to check for updates.", false);
+    openUpdateErrModal(r && r.reason ? r.reason : "The app couldn't run the update check.");
+    return false;
+  }
   if(r.update){ showUpdate(r); } else { showUpdateMsg("You're on the latest version (v"+r.current+")", false); }
   return false; }
 window.manualUpdate=manualUpdate;
