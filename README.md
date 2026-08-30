@@ -2,7 +2,7 @@
 
 A standalone desktop tool that scans an SFTP/SSH server and shows its security posture at a glance. Enter a host and port, click **Run Audit**, and get an overall A-F grade, server details, and a color-coded breakdown of every algorithm the server offers.
 
-Built by [JDE-Projects](https://github.com/JDE-Projects).
+Built by [JDE-Projects](https://jde-projects.com), home of the Simple X Tools suite.
 
 If you enjoyed this project and would like to buy me a coffee, check out my [Ko-fi](https://ko-fi.com/jdeprojects).
 
@@ -100,6 +100,7 @@ A few things worth knowing:
 - No credentials are used or stored. The tool never logs into the server.
 - Only scan servers you own or are authorized to test.
 - The debug log is off by default. Toggle it in the footer to write `Debug_Log_MMDDYYYY_HHMMSS.txt` next to the app for the current run.
+- **Network use.** Other than the job you ask of it, this app makes one automatic network call: a check to GitHub for a newer release (at startup and when you press **Check for updates**), which sends only a version request. It collects and sends no personal data, usage data, or analytics.
 
 ## A note on how this was built
 
