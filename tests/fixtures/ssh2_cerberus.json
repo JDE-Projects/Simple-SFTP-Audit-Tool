@@ -1,0 +1,103 @@
+{
+    "additional_notes": [],
+    "banner": {
+        "comments": null,
+        "protocol": "2.0",
+        "raw": "SSH-2.0-Cerberus_9.8",
+        "software": "Cerberus_9.8"
+    },
+    "compression": [
+        "none"
+    ],
+    "cves": [],
+    "enc": [
+        {
+            "algorithm": "aes128-cbc",
+            "notes": {
+                "warn": [
+                    "using weak cipher mode"
+                ]
+            }
+        },
+        {
+            "algorithm": "aes192-cbc",
+            "notes": {
+                "warn": [
+                    "using weak cipher mode"
+                ]
+            }
+        },
+        {
+            "algorithm": "aes256-cbc",
+            "notes": {
+                "warn": [
+                    "using weak cipher mode"
+                ]
+            }
+        },
+        {
+            "algorithm": "aes256-ctr",
+            "notes": {
+                "info": [
+                    "available since OpenSSH 3.7, Dropbear SSH 0.52"
+                ]
+            }
+        }
+    ],
+    "fingerprints": [
+        {
+            "hash": "v3/PPqXr17v34tCTf5VAp7To/J2YYw+hYc3X98nAmNI",
+            "hash_alg": "SHA256",
+            "hostkey": "ssh-rsa"
+        }
+    ],
+    "kex": [
+        {
+            "algorithm": "diffie-hellman-group14-sha256",
+            "notes": {
+                "info": [
+                    "available since OpenSSH 7.3, Dropbear SSH 2016.73"
+                ]
+            }
+        }
+    ],
+    "key": [
+        {
+            "algorithm": "rsa-sha2-256",
+            "keysize": 2048,
+            "notes": {
+                "info": [
+                    "available since OpenSSH 7.2, Dropbear SSH 2020.79"
+                ]
+            }
+        }
+    ],
+    "mac": [
+        {
+            "algorithm": "hmac-sha1",
+            "notes": {
+                "fail": [
+                    "using broken SHA-1 hash algorithm"
+                ]
+            }
+        },
+        {
+            "algorithm": "hmac-sha1-96",
+            "notes": {
+                "fail": [
+                    "using broken SHA-1 hash algorithm"
+                ]
+            }
+        },
+        {
+            "algorithm": "hmac-ripemd160",
+            "notes": {
+                "fail": [
+                    "using deprecated RIPEMD hash algorithm"
+                ]
+            }
+        }
+    ],
+    "recommendations": {},
+    "target": "127.0.0.1:22987"
+}

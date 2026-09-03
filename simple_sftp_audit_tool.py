@@ -48,6 +48,8 @@ os.environ.setdefault("QT_API", "pyside6")
 
 import webview
 
+from ssh_audit.ssh2_kexdb import SSH2_KexDB
+
 APP_VERSION = "1.6.2"
 GITHUB_REPO = "JDE-Projects/Simple-SFTP-Audit-Tool"  # owner/repo for update checks
 
@@ -104,7 +106,11 @@ def _run_ssh_audit(host, port, rate_test=False):
 
 
 def _parse_algorithm_section(entries):
-    """Build the {name, status, reason, key_size} list for one of kex/key/enc/mac."""
+    """Build the {name, status, reason, key_size, fail_labels, warn_labels} list
+    for one of kex/key/enc/mac. fail_labels/warn_labels keep ssh-audit's raw
+    FAIL_*/WARN_* constant strings (see ssh_audit.ssh2_kexdb.SSH2_KexDB) so the
+    grading model can reason about each specific weakness; status/reason stay
+    as the coarse fail/warn/good summary the display code already relies on."""
     out = []
     for entry in entries or []:
         if not isinstance(entry, dict):
@@ -118,7 +124,10 @@ def _parse_algorithm_section(entries):
         status = "fail" if fails else "warn" if warns else "good"
         reason = "; ".join(fails + warns)
         key_size = str(entry["keysize"]) if isinstance(entry.get("keysize"), int) else None
-        out.append({"name": name, "status": status, "reason": reason, "key_size": key_size})
+        out.append({
+            "name": name, "status": status, "reason": reason, "key_size": key_size,
+            "fail_labels": list(fails), "warn_labels": list(warns),
+        })
     return out
 
 
@@ -185,7 +194,8 @@ def _parse_json(output):
 
     security_issues = []
     protocol = banner.get("protocol") or ""
-    if isinstance(protocol, str) and protocol.split(".")[0] == "1":
+    ssh_v1 = isinstance(protocol, str) and protocol.split(".")[0] == "1"
+    if ssh_v1:
         security_issues.append(
             "SSH v1 enabled -- SSH v1 can be exploited to recover plaintext passwords"
         )
@@ -203,6 +213,7 @@ def _parse_json(output):
         "software": software,
         "compression": compression,
         "security_issues": security_issues,
+        "ssh_v1": ssh_v1,
         "kex": _parse_algorithm_section(data.get("kex")),
         "key": _parse_algorithm_section(data.get("key")),
         "enc": _parse_algorithm_section(data.get("enc")),
@@ -212,34 +223,201 @@ def _parse_json(output):
     }
 
 
+# --------------------------------------------------------------------------- #
+# Grading model: tier-ceiling (see blueprint.md for the full model and its
+# citations). ssh-audit attaches one of a fixed, pinned set of FAIL_*/WARN_*
+# reason strings (ssh_audit.ssh2_kexdb.SSH2_KexDB) to each algorithm it flags.
+# We tier the REASON, not the algorithm name: each reason is worth Tier 0
+# (broken/prohibited), Tier 1 (deprecated, must migrate), Tier 2 (discouraged
+# but not broken), or "not graded" (shown, never lowers the letter). The worst
+# tier seen anywhere sets the ceiling letter; a demerit count built from how
+# many algorithms land in each tier drives a +/- modifier within that letter.
+# --------------------------------------------------------------------------- #
+
+# Tier 0 - broken / prohibited -> ceiling F.
+_TIER_0_LABELS = {
+    SSH2_KexDB.FAIL_PLAINTEXT,
+    SSH2_KexDB.FAIL_RC4,
+    SSH2_KexDB.FAIL_MD5,
+    SSH2_KexDB.FAIL_DES,
+    SSH2_KexDB.FAIL_3DES,
+    SSH2_KexDB.FAIL_BLOWFISH,
+    SSH2_KexDB.FAIL_CAST,
+    SSH2_KexDB.FAIL_LOGJAM_ATTACK,
+    SSH2_KexDB.FAIL_1024BIT_MODULUS,
+}
+
+# Tier 1 - deprecated, must migrate -> ceiling C.
+_TIER_1_LABELS = {
+    SSH2_KexDB.FAIL_SHA1,
+    SSH2_KexDB.FAIL_IDEA,
+    SSH2_KexDB.FAIL_RIJNDAEL,
+    SSH2_KexDB.FAIL_SMALL_ECC_MODULUS,
+    SSH2_KexDB.FAIL_SEED,
+}
+
+# Tier 2 - discouraged, weaker but not broken -> ceiling B.
+_TIER_2_LABELS = {
+    SSH2_KexDB.WARN_CIPHER_MODE,
+    SSH2_KexDB.WARN_ENCRYPT_AND_MAC,
+    SSH2_KexDB.WARN_2048BIT_MODULUS,
+    SSH2_KexDB.WARN_BLOCK_SIZE,
+    SSH2_KexDB.WARN_TAG_SIZE,
+    SSH2_KexDB.WARN_TAG_SIZE_96,
+    SSH2_KexDB.FAIL_RIPEMD,
+    SSH2_KexDB.FAIL_SERPENT,
+    SSH2_KexDB.FAIL_UNPROVEN,
+}
+
+# Not graded - shown as information only, never lowers the letter.
+_NOT_GRADED_LABELS = {
+    SSH2_KexDB.WARN_NOT_PQ_SAFE,
+    SSH2_KexDB.WARN_RNDSIG_KEY,
+    SSH2_KexDB.FAIL_NSA_BACKDOORED_CURVE,
+    SSH2_KexDB.FAIL_UNTRUSTED,
+    SSH2_KexDB.WARN_EXPERIMENTAL,
+}
+
+# Case B - ssh-audit itself could not classify the algorithm. Outside our
+# control (depends what a remote server advertises), so it is not a build
+# failure like an untiered label would be. Shown as unrecognized; never counts
+# as secure, never sets or dodges a ceiling.
+_UNKNOWN_LABEL = SSH2_KexDB.FAIL_UNKNOWN
+
+_TIER_MAP = {}
+for _label in _TIER_0_LABELS:
+    _TIER_MAP[_label] = 0
+for _label in _TIER_1_LABELS:
+    _TIER_MAP[_label] = 1
+for _label in _TIER_2_LABELS:
+    _TIER_MAP[_label] = 2
+
+# Credited "modern algorithm" names for the A+ modifier (Curve25519, Ed25519,
+# AES-GCM/ChaCha20 AEAD ciphers, or an Encrypt-then-MAC mode).
+_CREDIT_KEX = {"curve25519-sha256", "curve25519-sha256@libssh.org",
+               "sntrup761x25519-sha512@openssh.com"}
+_CREDIT_ENC = {"chacha20-poly1305@openssh.com", "aes128-gcm@openssh.com", "aes256-gcm@openssh.com"}
+
+_GRADE_COLORS = {
+    "A": "#5ce39b",  # green
+    "B": "#6db3ff",  # blue
+    "C": "#f0b860",  # amber
+    "F": "#ff6b7a",  # red
+}
+
+
+def _algorithm_worst_tier(alg):
+    """Return (tier, is_unknown) for one parsed algorithm dict (as built by
+    _parse_algorithm_section). tier is the worst graded tier (0/1/2) among its
+    labels, or None when it has no graded finding (no labels, or only
+    not-graded/unknown ones). is_unknown is True when FAIL_UNKNOWN (Case B) is
+    one of its labels."""
+    labels = alg["fail_labels"] + alg["warn_labels"]
+    is_unknown = _UNKNOWN_LABEL in labels
+    tiers = [_TIER_MAP[label] for label in labels if label in _TIER_MAP]
+    tier = min(tiers) if tiers else None
+    return tier, is_unknown
+
+
+def _is_credited_modern(section, name):
+    lname = (name or "").lower()
+    if section == "kex":
+        return lname in _CREDIT_KEX
+    if section == "key":
+        return lname == "ssh-ed25519"
+    if section == "enc":
+        return lname in _CREDIT_ENC
+    if section == "mac":
+        return "-etm@" in lname
+    return False
+
+
 def _counts(parsed):
+    """Score every algorithm across kex/key/enc/mac. Each algorithm counts
+    once, at its worst graded tier (see _algorithm_worst_tier). Returns a dict
+    with the display counts (fails/warns/goods) plus the grading inputs the
+    ceiling and modifier need: the worst tier seen anywhere, the demerit
+    counts per tier, and whether a credited modern algorithm is present.
+
+    fails = algorithms whose worst graded tier is 0 or 1.
+    warns = algorithms whose worst graded tier is 2.
+    goods = algorithms with no graded finding (including ones that carry only
+    not-graded labels). Case B (FAIL_UNKNOWN-only) algorithms count as none of
+    the three: shown as unrecognized, never secure, never a ceiling.
+
+    nist_curve is True when any algorithm carries FAIL_NSA_BACKDOORED_CURVE
+    (the reliable "a NIST P-curve is present" signal), which does not set a
+    tier ceiling but does trigger the A- soft cap in _grade."""
     fails = warns = goods = 0
+    tier1_count = tier2_count = 0
+    worst_tier = None
+    has_credit = False
+    nist_curve = False
     for sec in ("kex", "key", "enc", "mac"):
         for alg in parsed[sec]:
-            if alg["status"] == "fail":
-                fails += 1
-            elif alg["status"] == "warn":
-                warns += 1
-            else:
+            tier, is_unknown = _algorithm_worst_tier(alg)
+            if tier is not None:
+                if worst_tier is None or tier < worst_tier:
+                    worst_tier = tier
+                if tier <= 1:
+                    fails += 1
+                    if tier == 1:
+                        tier1_count += 1
+                else:
+                    warns += 1
+                    tier2_count += 1
+            elif not is_unknown:
                 goods += 1
-    return fails, warns, goods
+            if _is_credited_modern(sec, alg["name"]):
+                has_credit = True
+            if SSH2_KexDB.FAIL_NSA_BACKDOORED_CURVE in alg["fail_labels"]:
+                nist_curve = True
+    return {
+        "fails": fails, "warns": warns, "goods": goods,
+        "worst_tier": worst_tier, "tier1_count": tier1_count,
+        "tier2_count": tier2_count, "has_credit": has_credit,
+        "nist_curve": nist_curve,
+    }
 
 
-def _grade(fails, warns, goods):
-    total = fails + warns + goods
-    if total == 0:
-        return "?", "#5a6678"
-    if fails == 0 and warns == 0:
-        return "A+", "#5ce39b"
-    if fails == 0 and warns <= 2:
-        return "A", "#4dd6c1"
-    if fails == 0:
-        return "B", "#6db3ff"
-    if fails <= 2:
-        return "C", "#f0b860"
-    if fails <= 5:
-        return "D", "#f0b860"
-    return "F", "#ff6b7a"
+def _grade(counts, ssh_v1=False):
+    """Ceiling letter = worst tier present (Tier 0 -> F, Tier 1 -> C, Tier 2
+    -> B, none -> A), then a +/- modifier from the demerit total
+    d = 3 * tier1_count + tier2_count. SSH v1 is a hard cap straight to F.
+
+    NIST-curve soft cap: a NIST P-curve (FAIL_NSA_BACKDOORED_CURVE) does not
+    set a tier ceiling, since it is FIPS-standard and carries no CVE, but it
+    is not the same as being hardened to curve25519/ed25519-only. So it caps
+    an otherwise A+/A grade at A-. No effect at B or below."""
+    worst_tier = counts["worst_tier"]
+    if ssh_v1 or worst_tier == 0:
+        return "F", _GRADE_COLORS["F"]
+
+    d = 3 * counts["tier1_count"] + counts["tier2_count"]
+
+    if worst_tier == 1:
+        if d <= 4:
+            letter = "C+"
+        elif d >= 10:
+            letter = "C-"
+        else:
+            letter = "C"
+        return letter, _GRADE_COLORS["C"]
+
+    if worst_tier == 2:
+        if d <= 2:
+            letter = "B+"
+        elif d >= 7:
+            letter = "B-"
+        else:
+            letter = "B"
+        return letter, _GRADE_COLORS["B"]
+
+    if counts["nist_curve"]:
+        letter = "A-"
+    else:
+        letter = "A+" if counts["has_credit"] else "A"
+    return letter, _GRADE_COLORS["A"]
 
 
 def _has_sha1_fail(section):
@@ -683,20 +861,20 @@ class Api:
             })
             return {"ok": False, "error": msg, "host": host, "port": port}
 
-        fails, warns, goods = _counts(parsed)
-        total = fails + warns + goods
+        total = sum(len(parsed[sec]) for sec in ("kex", "key", "enc", "mac"))
         has_banner = bool(parsed["software"])
 
         if total > 0:
-            grade, color = _grade(fails, warns, goods)
+            counts = _counts(parsed)
+            grade, color = _grade(counts, ssh_v1=parsed["ssh_v1"])
             debug.log("AUDIT CLASSIFICATION", {
                 "decision": "graded", "grade": grade,
-                "fails": fails, "warns": warns, "goods": goods,
+                "fails": counts["fails"], "warns": counts["warns"], "goods": counts["goods"],
             })
             return {
                 "ok": True, "host": host, "port": port,
                 "grade": grade, "grade_color": color,
-                "counts": {"fails": fails, "warns": warns, "goods": goods},
+                "counts": {"fails": counts["fails"], "warns": counts["warns"], "goods": counts["goods"]},
                 "software": parsed["software"],
                 "compression": parsed["compression"],
                 "security_issues": parsed["security_issues"],

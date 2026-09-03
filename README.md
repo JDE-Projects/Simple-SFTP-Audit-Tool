@@ -91,7 +91,8 @@ The scanning engine is [ssh-audit](https://github.com/jtesta/ssh-audit). It inst
 
 A few things worth knowing:
 
-- The grade is derived from the count of failures and warnings across the four algorithm categories.
+- The grade is set by the single most serious genuine weakness found, not by how many algorithms are involved. One dangerous algorithm caps the grade no matter how many good ones sit next to it, and a pile of minor issues can't quietly average out to a good score either. Policy-only items, like which curves NIST prefers or the lack of post-quantum protection, are shown for information but don't lower the grade on their own.
+- Offering a NIST-standard curve (like `nistp256`) keeps a server just under top marks, at A-, rather than failing it outright. Some people consider these curves potentially weakened, but they are still the FIPS standard and the OpenSSH default, and no actual flaw has ever been confirmed, so this tool treats them as a minor ding rather than a real failure.
 - Post-quantum / "Harvest Now, Decrypt Later" notices from newer ssh-audit builds show as warnings, not failures. A modern server without post-quantum hybrids is not broken, just not future-proofed yet.
 
 ## Security and privacy

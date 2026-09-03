@@ -1,0 +1,63 @@
+{
+    "additional_notes": [],
+    "banner": {
+        "comments": null,
+        "protocol": "2.0",
+        "raw": "SSH-2.0-OpenSSH_9.6",
+        "software": "OpenSSH_9.6"
+    },
+    "compression": [
+        "none"
+    ],
+    "cves": [],
+    "enc": [
+        {
+            "algorithm": "aes256-gcm@openssh.com",
+            "notes": {
+                "info": [
+                    "available since OpenSSH 6.2"
+                ]
+            }
+        }
+    ],
+    "fingerprints": [
+        {
+            "hash": "v3/PPqXr17v34tCTf5VAp7To/J2YYw+hYc3X98nAmNI",
+            "hash_alg": "SHA256",
+            "hostkey": "ecdsa-sha2-1.3.132.0.10"
+        }
+    ],
+    "kex": [
+        {
+            "algorithm": "curve25519-sha256@libssh.org",
+            "notes": {
+                "info": [
+                    "available since OpenSSH 6.4, Dropbear SSH 2013.62"
+                ]
+            }
+        }
+    ],
+    "key": [
+        {
+            "algorithm": "ecdsa-sha2-1.3.132.0.10",
+            "keysize": 256,
+            "notes": {
+                "warn": [
+                    "using weak random number generator could reveal the key"
+                ]
+            }
+        }
+    ],
+    "mac": [
+        {
+            "algorithm": "hmac-sha2-256-etm@openssh.com",
+            "notes": {
+                "info": [
+                    "available since OpenSSH 6.2"
+                ]
+            }
+        }
+    ],
+    "recommendations": {},
+    "target": "127.0.0.1:22987"
+}

@@ -1,0 +1,102 @@
+{
+    "additional_notes": [],
+    "banner": {
+        "comments": null,
+        "protocol": "2.0",
+        "raw": "SSH-2.0-OpenSSH_9.6",
+        "software": "OpenSSH_9.6"
+    },
+    "compression": [
+        "none"
+    ],
+    "cves": [],
+    "enc": [
+        {
+            "algorithm": "aes128-ctr",
+            "notes": {
+                "info": [
+                    "available since OpenSSH 3.7, Dropbear SSH 0.52"
+                ]
+            }
+        },
+        {
+            "algorithm": "aes192-ctr",
+            "notes": {
+                "info": [
+                    "available since OpenSSH 3.7"
+                ]
+            }
+        },
+        {
+            "algorithm": "aes256-ctr",
+            "notes": {
+                "info": [
+                    "available since OpenSSH 3.7, Dropbear SSH 0.52"
+                ]
+            }
+        },
+        {
+            "algorithm": "aes256-gcm@openssh.com",
+            "notes": {
+                "info": [
+                    "available since OpenSSH 6.2"
+                ]
+            }
+        },
+        {
+            "algorithm": "arcfour",
+            "notes": {
+                "fail": [
+                    "using broken RC4 cipher"
+                ]
+            }
+        }
+    ],
+    "fingerprints": [
+        {
+            "hash": "v3/PPqXr17v34tCTf5VAp7To/J2YYw+hYc3X98nAmNI",
+            "hash_alg": "SHA256",
+            "hostkey": "ssh-ed25519"
+        }
+    ],
+    "kex": [
+        {
+            "algorithm": "curve25519-sha256@libssh.org",
+            "notes": {
+                "info": [
+                    "available since OpenSSH 6.4, Dropbear SSH 2013.62"
+                ]
+            }
+        }
+    ],
+    "key": [
+        {
+            "algorithm": "ssh-ed25519",
+            "notes": {
+                "info": [
+                    "available since OpenSSH 6.5"
+                ]
+            }
+        }
+    ],
+    "mac": [
+        {
+            "algorithm": "hmac-sha2-256-etm@openssh.com",
+            "notes": {
+                "info": [
+                    "available since OpenSSH 6.2"
+                ]
+            }
+        },
+        {
+            "algorithm": "hmac-sha2-512-etm@openssh.com",
+            "notes": {
+                "info": [
+                    "available since OpenSSH 6.2"
+                ]
+            }
+        }
+    ],
+    "recommendations": {},
+    "target": "127.0.0.1:22987"
+}
