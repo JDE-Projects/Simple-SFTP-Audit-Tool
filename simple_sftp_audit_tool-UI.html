@@ -477,10 +477,9 @@ function render(r){
     </div>`;
 
   // server info
-  if(r.software || r.os || (r.compression && r.compression.length)){
+  if(r.software || (r.compression && r.compression.length)){
     html += `<div class="card teal"><h2>Server Information</h2>`;
     if(r.software) html += `<div class="kv"><span class="k">Software</span><span class="v ok">${esc(r.software)}</span></div>`;
-    if(r.os) html += `<div class="kv"><span class="k">OS</span><span class="v">${esc(r.os)}</span></div>`;
     if(r.compression && r.compression.length) html += `<div class="kv"><span class="k">Compression</span><span class="v">${esc(r.compression.join(", "))}</span></div>`;
     html += `</div>`;
   }
@@ -548,10 +547,9 @@ function buildReport(r){
     r.checklist.forEach(it => L.push(`  ${statusIcon(it.status)} ${it.text}`));
     L.push("");
   }
-  if(r.software || r.os){
+  if(r.software){
     L.push("SERVER INFORMATION"); L.push("-".repeat(18));
     if(r.software) L.push(`  Software: ${r.software}`);
-    if(r.os) L.push(`  OS: ${r.os}`);
     if(r.compression && r.compression.length) L.push(`  Compression: ${r.compression.join(", ")}`);
     L.push("");
   }

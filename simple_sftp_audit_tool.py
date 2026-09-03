@@ -85,7 +85,7 @@ def _run_ssh_audit(host, port, rate_test=False):
     """Run ssh-audit in-process; return its raw text output (or '')."""
     from ssh_audit.ssh_audit import main as audit_main
 
-    args = ["ssh-audit", "-v", "-4", "-t", "10", "-p", str(port)]
+    args = ["ssh-audit", "-j", "-4", "-t", "10", "-p", str(port)]
     if not rate_test:
         args.append("--skip-rate-test")
     args.append(host)
@@ -103,118 +103,113 @@ def _run_ssh_audit(host, port, rate_test=False):
         sys.argv = original_argv
 
 
-def _parse(output):
-    """Parse ssh-audit output into a structured dict."""
-    parsed = {
-        "software": "", "os": "", "compression": [], "security_issues": [],
-        "kex": [], "key": [], "enc": [], "mac": [],
-        "fingerprints": [], "recommendations": [],
+def _parse_algorithm_section(entries):
+    """Build the {name, status, reason, key_size} list for one of kex/key/enc/mac."""
+    out = []
+    for entry in entries or []:
+        if not isinstance(entry, dict):
+            continue
+        name = entry.get("algorithm")
+        if not name:
+            continue
+        notes = entry.get("notes") or {}
+        fails = notes.get("fail") or []
+        warns = notes.get("warn") or []
+        status = "fail" if fails else "warn" if warns else "good"
+        reason = "; ".join(fails + warns)
+        key_size = str(entry["keysize"]) if isinstance(entry.get("keysize"), int) else None
+        out.append({"name": name, "status": status, "reason": reason, "key_size": key_size})
+    return out
+
+
+def _flatten_recommendations(recommendations):
+    """Flatten the nested {level: {action: {alg_type: [{name, notes}]}}} dict
+    into a flat list of human-readable strings. Guarded so a malformed shape
+    is skipped instead of raising."""
+    flat = []
+    if not isinstance(recommendations, dict):
+        return flat
+    action_verbs = {"del": "Remove", "add": "Add", "chg": "Change"}
+    for level in ("critical", "warning", "informational"):
+        by_action = recommendations.get(level)
+        if not isinstance(by_action, dict):
+            continue
+        for action, verb in action_verbs.items():
+            by_alg_type = by_action.get(action)
+            if not isinstance(by_alg_type, dict):
+                continue
+            for entries in by_alg_type.values():
+                if not isinstance(entries, list):
+                    continue
+                for entry in entries:
+                    if not isinstance(entry, dict):
+                        continue
+                    name = entry.get("name")
+                    if not name:
+                        continue
+                    text = f"{verb} {name}"
+                    notes = entry.get("notes")
+                    if notes:
+                        text += f" ({notes})"
+                    flat.append(text)
+    return flat
+
+
+def _parse_json(output):
+    """Parse ssh-audit's `-j` JSON output into a structured dict. Returns None
+    when no JSON object can be extracted (e.g. the engine failed to connect
+    and printed only an [exception] line); the caller treats that as the
+    no-data path."""
+    text = _clean(output).strip()
+    data = None
+    try:
+        data = json.loads(text)
+    except (json.JSONDecodeError, ValueError):
+        start = text.find("{")
+        end = text.rfind("}")
+        if start != -1 and end != -1 and end > start:
+            try:
+                data = json.loads(text[start:end + 1])
+            except (json.JSONDecodeError, ValueError):
+                return None
+        else:
+            return None
+
+    if not isinstance(data, dict):
+        return None
+
+    banner = data.get("banner") or {}
+    software = banner.get("software") or banner.get("raw") or ""
+
+    compression = [c for c in (data.get("compression") or []) if isinstance(c, str)]
+
+    security_issues = []
+    protocol = banner.get("protocol") or ""
+    if isinstance(protocol, str) and protocol.split(".")[0] == "1":
+        security_issues.append(
+            "SSH v1 enabled -- SSH v1 can be exploited to recover plaintext passwords"
+        )
+    for note in data.get("additional_notes") or []:
+        if isinstance(note, str) and note:
+            security_issues.append(note)
+
+    fingerprints = []
+    for fp in data.get("fingerprints") or []:
+        if not isinstance(fp, dict):
+            continue
+        fingerprints.append(f"{fp.get('hostkey')} ({fp.get('hash_alg')}): {fp.get('hash')}")
+
+    return {
+        "software": software,
+        "compression": compression,
+        "security_issues": security_issues,
+        "kex": _parse_algorithm_section(data.get("kex")),
+        "key": _parse_algorithm_section(data.get("key")),
+        "enc": _parse_algorithm_section(data.get("enc")),
+        "mac": _parse_algorithm_section(data.get("mac")),
+        "fingerprints": fingerprints,
+        "recommendations": _flatten_recommendations(data.get("recommendations")),
     }
-    section = None
-    for raw in output.split("\n"):
-        clean = _clean(raw)
-        if not clean:
-            continue
-
-        if clean.startswith("# general"):
-            section = "general"
-            continue
-        elif clean.startswith("# key exchange algorithms"):
-            section = "kex"
-            continue
-        elif clean.startswith("# host-key algorithms"):
-            section = "key"
-            continue
-        elif clean.startswith("# encryption algorithms"):
-            section = "enc"
-            continue
-        elif clean.startswith("# message authentication"):
-            section = "mac"
-            continue
-        elif clean.startswith("# fingerprints"):
-            section = "fingerprints"
-            continue
-        elif clean.startswith("# algorithm recommendations"):
-            section = "recommendations"
-            continue
-        elif clean.startswith("# additional info"):
-            section = "additional"
-            continue
-        elif clean.startswith("# compression"):
-            section = "compression"
-            continue
-        elif clean.startswith("#"):
-            section = None
-            continue
-
-        if section == "general":
-            if "(gen)" in clean:
-                gen = clean.replace("(gen)", "").strip()
-                low = gen.lower()
-                if "software:" in low:
-                    parsed["software"] = gen.split(":", 1)[1].strip() if ":" in gen else gen
-                elif "os:" in low:
-                    parsed["os"] = gen.split(":", 1)[1].strip() if ":" in gen else gen
-                elif "banner:" in low:
-                    banner = gen.split(":", 1)[1].strip() if ":" in gen else gen
-                    if not parsed["software"]:
-                        parsed["software"] = banner
-                elif gen.startswith("SSH-") or "ssh" in low:
-                    if not parsed["software"]:
-                        parsed["software"] = gen
-                if "[fail]" in clean.lower() or "[warn]" in clean.lower():
-                    parsed["security_issues"].append(gen)
-
-        elif section == "compression":
-            if "(cmp)" in clean:
-                mo = re.search(r"\(cmp\)\s+(\S+)", clean)
-                if mo:
-                    parsed["compression"].append(mo.group(1))
-
-        elif section in ("kex", "key", "enc", "mac"):
-            mo = re.match(r"\((?:kex|key|enc|mac)\)\s+(\S+)", clean)
-            if mo:
-                name = mo.group(1)
-                size_mo = re.search(r"\((\d+)-bit\)", clean)
-                key_size = size_mo.group(1) if size_mo else None
-                status = "good"
-                if "[fail]" in clean.lower():
-                    status = "fail"
-                elif "[warn]" in clean.lower():
-                    status = "warn"
-                reason = ""
-                rmo = re.search(r"--\s+\[(fail|warn|info)\]\s+(.+)$", clean)
-                if rmo and rmo.group(1) in ("fail", "warn"):
-                    reason = rmo.group(2)
-                existing = next((a for a in parsed[section] if a["name"] == name), None)
-                if existing:
-                    pri = {"fail": 3, "warn": 2, "good": 1}
-                    if pri[status] > pri[existing["status"]]:
-                        existing["status"] = status
-                    if reason and reason not in existing["reason"]:
-                        existing["reason"] = (existing["reason"] + "; " + reason).strip("; ")
-                    if key_size and not existing.get("key_size"):
-                        existing["key_size"] = key_size
-                else:
-                    parsed[section].append(
-                        {"name": name, "status": status, "reason": reason, "key_size": key_size}
-                    )
-
-        elif section == "fingerprints":
-            if "(fin)" in clean:
-                parsed["fingerprints"].append(clean.replace("(fin)", "").strip())
-
-        elif section == "recommendations":
-            if "(rec)" in clean:
-                parsed["recommendations"].append(clean.replace("(rec)", "").strip())
-
-        elif section == "additional":
-            if "(nfo)" in clean or "(inf)" in clean:
-                txt = re.sub(r"\(nfo\)|\(inf\)", "", clean).strip()
-                if txt:
-                    parsed["security_issues"].append(txt)
-
-    return parsed
 
 
 def _counts(parsed):
@@ -247,6 +242,12 @@ def _grade(fails, warns, goods):
     return "F", "#ff6b7a"
 
 
+def _has_sha1_fail(section):
+    """True when any algorithm in a parsed section (list of {status, reason})
+    was flagged with a SHA-1-related failure by ssh-audit's own notes."""
+    return any(a["status"] == "fail" and "SHA-1" in a["reason"] for a in section)
+
+
 def _checklist(parsed):
     items = []
     all_kex = [a["name"].lower() for a in parsed["kex"]]
@@ -254,10 +255,10 @@ def _checklist(parsed):
     all_enc = [a["name"].lower() for a in parsed["enc"]]
     all_mac = [a["name"].lower() for a in parsed["mac"]]
 
-    if "ssh-rsa" in all_key:
-        items.append({"status": "bad", "text": "Supports ssh-rsa (SHA-1 signatures) - deprecated"})
+    if _has_sha1_fail(parsed["key"]):
+        items.append({"status": "bad", "text": "Supports SHA-1 host key signatures (e.g. ssh-rsa) - deprecated"})
     else:
-        items.append({"status": "good", "text": "No SHA-1 signature algorithms (ssh-rsa not supported)"})
+        items.append({"status": "good", "text": "No SHA-1 host key signature algorithms"})
 
     modern_kex = ["curve25519-sha256", "curve25519-sha256@libssh.org",
                   "sntrup761x25519-sha512@openssh.com"]
@@ -266,12 +267,10 @@ def _checklist(parsed):
     else:
         items.append({"status": "warn", "text": "No Curve25519 key exchange support"})
 
-    weak_kex = ["diffie-hellman-group1-sha1", "diffie-hellman-group14-sha1",
-                "diffie-hellman-group-exchange-sha1"]
-    if any(k in all_kex for k in weak_kex):
-        items.append({"status": "bad", "text": "Supports weak key exchange algorithms (SHA-1 based DH)"})
+    if _has_sha1_fail(parsed["kex"]):
+        items.append({"status": "bad", "text": "Supports weak SHA-1 key exchange algorithms"})
     else:
-        items.append({"status": "good", "text": "No weak key exchange algorithms"})
+        items.append({"status": "good", "text": "No weak SHA-1 key exchange algorithms"})
 
     cbc = [c for c in all_enc if "-cbc" in c]
     if cbc:
@@ -633,7 +632,24 @@ class Api:
         debug.log("SSH-AUDIT RAW OUTPUT (len=%d)" % len(output), output)
 
         # Parse the output and classify the result.
-        parsed = _parse(output)
+        parsed = _parse_json(output)
+        if parsed is None:
+            if engine_error:
+                msg = (
+                    "The scan engine hit an error while auditing "
+                    + host + ":" + str(port)
+                    + ". Enable the Debug log and re-run to capture details."
+                )
+            else:
+                msg = (
+                    "Could not connect to " + host + ":" + str(port)
+                    + ". Can you reach this SFTP server from this machine and public IP?"
+                )
+            debug.log("AUDIT CLASSIFICATION", {
+                "decision": "engine_error" if engine_error else "no_response",
+            })
+            return {"ok": False, "error": msg, "host": host, "port": port}
+
         fails, warns, goods = _counts(parsed)
         total = fails + warns + goods
         has_banner = bool(parsed["software"])
@@ -648,7 +664,7 @@ class Api:
                 "ok": True, "host": host, "port": port,
                 "grade": grade, "grade_color": color,
                 "counts": {"fails": fails, "warns": warns, "goods": goods},
-                "software": parsed["software"], "os": parsed["os"],
+                "software": parsed["software"],
                 "compression": parsed["compression"],
                 "security_issues": parsed["security_issues"],
                 "checklist": _checklist(parsed),

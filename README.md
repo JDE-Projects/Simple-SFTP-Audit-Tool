@@ -19,7 +19,7 @@ If you enjoyed this project and would like to buy me a coffee, check out my [Ko-
 - **At-a-glance grade.** Every scan returns an overall A+ to F grade plus a count of failures, warnings, and secure items.
 - **Plain-language security checklist.** Instead of just listing algorithms, it calls out what matters: SHA-1 signatures, weak key exchange, CBC ciphers, RC4/3DES, MD5 MACs, and whether modern options (Curve25519, Ed25519, AEAD, Encrypt-then-MAC) are present.
 - **Organized by category.** Key exchange, host key, encryption, and MAC algorithms are grouped, each with red/yellow/green status and key sizes where reported.
-- **Server fingerprint and details.** Software banner, detected OS, compression, and host key fingerprints.
+- **Server fingerprint and details.** Software banner, compression, and host key fingerprints.
 - **One-click report.** Export a full text report to a file for tickets or records.
 
 ## How it works
@@ -87,7 +87,7 @@ The scanning engine is [ssh-audit](https://github.com/jtesta/ssh-audit). It inst
 - **Host key algorithms** (flags `ssh-rsa`/SHA-1, credits Ed25519)
 - **Encryption ciphers** (flags CBC mode, RC4/arcfour, 3DES; credits ChaCha20-Poly1305 and AES-GCM)
 - **Message authentication codes** (flags MD5-based MACs; credits Encrypt-then-MAC)
-- **Server information** (software banner, OS guess, compression, host key fingerprints)
+- **Server information** (software banner, compression, host key fingerprints)
 
 A few things worth knowing:
 

@@ -1,0 +1,18 @@
+{
+    "additional_notes": [],
+    "banner": {
+        "comments": null,
+        "protocol": "2.0",
+        "raw": "SSH-2.0-libssh_0.9",
+        "software": "libssh_0.9"
+    },
+    "compression": [],
+    "cves": [],
+    "enc": [],
+    "fingerprints": [],
+    "kex": [],
+    "key": [],
+    "mac": [],
+    "recommendations": {},
+    "target": "127.0.0.1:22987"
+}
