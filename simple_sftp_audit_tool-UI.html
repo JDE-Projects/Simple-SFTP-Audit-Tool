@@ -672,10 +672,21 @@ function showUpdateMsg(html, persist){
   u.classList.add("show");
   if(!persist){ updTimer = setTimeout(() => u.classList.remove("show"), 5000); }
 }
-function updDownload(url){ openExt(url); const u=$("update-msg"); if(u)u.classList.remove("show"); return false; }
-window.updDownload = updDownload;
 function showUpdate(r){
-  if(r.update){ showUpdateMsg('Update available: v'+r.latest+' \u00b7 <a href="#" onclick="return updDownload(\''+r.url+'\')">download</a>', true); }
+  if(!r.update) return;
+  const u = $("update-msg"); if(!u) return;
+  if(updTimer){ clearTimeout(updTimer); updTimer = null; }
+  u.textContent = "Update available: v" + r.latest + " \u00b7 ";
+  const a = document.createElement("a");
+  a.href = "#";
+  a.textContent = "download";
+  a.addEventListener("click", (e) => {
+    e.preventDefault();
+    if(r.url) openExt(r.url);
+    u.classList.remove("show");
+  });
+  u.appendChild(a);
+  u.classList.add("show");
 }
 function openUpdateErrModal(reason){
   $('update-err-msg').textContent = reason;

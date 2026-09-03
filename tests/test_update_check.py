@@ -142,3 +142,120 @@ def test_unknown_exception_message_truncated():
     reason = app._update_error_reason(exc)
     assert len(reason) <= 120
     assert reason.endswith("...")
+
+
+# --- _valid_release_tag ---------------------------------------------------
+
+@pytest.mark.parametrize("tag", ["v1.6.2", "1.6", "2", "1.2.3.4"])
+def test_valid_release_tag_accepts_version_shapes(tag):
+    assert app._valid_release_tag(tag) is True
+
+
+@pytest.mark.parametrize("tag", [
+    "", None, "javascript:alert(1)", "<script>", "1.6.2; rm", "v 1", "latest", 123,
+])
+def test_valid_release_tag_rejects_bad_values(tag):
+    assert app._valid_release_tag(tag) is False
+
+
+# --- _valid_release_url ----------------------------------------------------
+
+@pytest.mark.parametrize("url", [
+    "https://github.com/JDE-Projects/Simple-SFTP-Audit-Tool/releases/tag/v1.6.2",
+    "https://github.com/JDE-Projects/Simple-SFTP-Audit-Tool/releases/latest",
+])
+def test_valid_release_url_accepts_repo_release_urls(url):
+    assert app._valid_release_url(url) is True
+
+
+@pytest.mark.parametrize("url", [
+    "http://github.com/JDE-Projects/Simple-SFTP-Audit-Tool/releases/tag/v1",
+    "https://evil.com/JDE-Projects/Simple-SFTP-Audit-Tool/releases/tag/v1",
+    "https://github.com/other/repo/releases/tag/v1",
+    "javascript:alert(1)",
+    "",
+    None,
+])
+def test_valid_release_url_rejects_bad_values(url):
+    assert app._valid_release_url(url) is False
+
+
+# --- _allowed_external_url --------------------------------------------------
+
+@pytest.mark.parametrize("url", [
+    "https://jde-projects.com",
+    "https://jde-projects.com/download",
+    "https://github.com/jtesta/ssh-audit",
+    "https://github.com/jtesta/ssh-audit/blob/main/README.md",
+    "https://github.com/JDE-Projects/Simple-SFTP-Audit-Tool",
+    "https://github.com/JDE-Projects/Simple-SFTP-Audit-Tool/releases",
+])
+def test_allowed_external_url_accepts_known_prefixes(url):
+    assert app._allowed_external_url(url) is True
+
+
+@pytest.mark.parametrize("url", [
+    "https://jde-projects.com.evil.com",
+    "https://evil.com",
+    "http://jde-projects.com",
+    "javascript:alert(1)",
+    None,
+])
+def test_allowed_external_url_rejects_bad_values(url):
+    assert app._allowed_external_url(url) is False
+
+
+# --- check_update sanitization ---------------------------------------------
+
+class _FakeResp:
+    def __init__(self, payload):
+        self._payload = payload
+
+    def read(self):
+        return json.dumps(self._payload).encode()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+
+_FALLBACK_URL = "https://github.com/%s/releases/latest" % app.GITHUB_REPO
+
+
+def test_check_update_sanitizes_hostile_tag_and_url(monkeypatch):
+    monkeypatch.setattr(
+        app, "urlopen",
+        lambda *a, **k: _FakeResp({"tag_name": "<script>bad</script>", "html_url": "javascript:alert(1)"}),
+    )
+    r = app.Api().check_update()
+    assert r["ok"] is True
+    assert r["latest"] == ""
+    assert r["update"] is False
+    assert r["url"] == _FALLBACK_URL
+
+
+def test_check_update_falls_back_to_repo_url_for_wrong_host(monkeypatch):
+    monkeypatch.setattr(
+        app, "urlopen",
+        lambda *a, **k: _FakeResp({"tag_name": "v99.0.0", "html_url": "https://evil.com/x"}),
+    )
+    r = app.Api().check_update()
+    assert r["ok"] is True
+    assert r["latest"] == "99.0.0"
+    assert r["update"] is True
+    assert r["url"] == _FALLBACK_URL
+
+
+def test_check_update_passes_through_valid_release_url(monkeypatch):
+    valid_url = "https://github.com/%s/releases/tag/v99.0.0" % app.GITHUB_REPO
+    monkeypatch.setattr(
+        app, "urlopen",
+        lambda *a, **k: _FakeResp({"tag_name": "v99.0.0", "html_url": valid_url}),
+    )
+    r = app.Api().check_update()
+    assert r["ok"] is True
+    assert r["latest"] == "99.0.0"
+    assert r["update"] is True
+    assert r["url"] == valid_url

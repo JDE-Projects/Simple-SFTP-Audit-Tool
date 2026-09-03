@@ -568,6 +568,34 @@ def _update_error_reason(exc: BaseException) -> str:
     return text
 
 
+def _valid_release_tag(tag):
+    """True only when tag looks like a version number (optional leading v, digits and dots)."""
+    if not isinstance(tag, str) or not tag:
+        return False
+    return re.fullmatch(r"v?\d+(?:\.\d+){0,3}", tag) is not None
+
+
+def _valid_release_url(url):
+    """True only when url points at this repo's GitHub releases page."""
+    if not isinstance(url, str):
+        return False
+    return url.startswith("https://github.com/%s/releases/" % GITHUB_REPO)
+
+
+_ALLOWED_LINK_PREFIXES = (
+    "https://jde-projects.com",
+    "https://github.com/jtesta/ssh-audit",
+    "https://github.com/JDE-Projects/Simple-SFTP-Audit-Tool",
+)
+
+
+def _allowed_external_url(url):
+    """True only when url matches (or is a sub-path of) one of the allowed link prefixes."""
+    if not isinstance(url, str):
+        return False
+    return any(url == prefix or url.startswith(prefix + "/") for prefix in _ALLOWED_LINK_PREFIXES)
+
+
 class Api:
     def set_debug(self, enabled):
         ok = debug.set_enabled(enabled)
@@ -582,10 +610,15 @@ class Api:
                           headers={"User-Agent": "Simple-SFTP-Audit-Tool", "Accept": "application/vnd.github+json"})
             with urlopen(req, timeout=10) as r:
                 data = json.loads(r.read().decode())
-            tag = (data.get("tag_name") or "").lstrip("v")
+            tag_raw = data.get("tag_name") or ""
+            tag = tag_raw.lstrip("v") if _valid_release_tag(tag_raw) else ""
+            url_raw = data.get("html_url") or ""
+            fallback_url = "https://github.com/%s/releases/latest" % GITHUB_REPO
+            url = url_raw if _valid_release_url(url_raw) else fallback_url
+            update = bool(tag) and self._is_newer(tag, APP_VERSION)
             debug.log("check_update", {"latest": tag, "current": APP_VERSION})
             return {"ok": True, "current": APP_VERSION, "latest": tag,
-                    "update": self._is_newer(tag, APP_VERSION), "url": data.get("html_url", "")}
+                    "update": update, "url": url}
         except Exception as e:
             debug.log("check_update failed", "%s: %s" % (type(e).__name__, e))
             return {"ok": False, "current": APP_VERSION, "reason": _update_error_reason(e), "error": str(e)}
@@ -733,7 +766,7 @@ class Api:
         """Open an external link in the system browser (not the app window)."""
         import webbrowser
         try:
-            if isinstance(url, str) and url.startswith(("http://", "https://")):
+            if _allowed_external_url(url):
                 webbrowser.open(url)
         except Exception:
             pass
