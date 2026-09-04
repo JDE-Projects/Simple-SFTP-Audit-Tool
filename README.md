@@ -1,6 +1,6 @@
 # Simple SFTP Audit Tool
 
-A standalone desktop tool that scans an SFTP/SSH server and shows its security posture at a glance. Enter a host and port, click **Run Audit**, and get an overall A-F grade, server details, and a color-coded breakdown of every algorithm the server offers.
+A standalone desktop tool that scans an SFTP/SSH server and shows its security posture at a glance. Enter a host and port (hostnames, IPv4, and IPv6 addresses all work), click **Run Audit**, and get an overall A-F grade, server details, and a color-coded breakdown of every algorithm the server offers.
 
 Built by [JDE-Projects](https://jde-projects.com), home of the Simple X Tools suite.
 
@@ -76,7 +76,7 @@ The scanning engine is [ssh-audit](https://github.com/jtesta/ssh-audit). It inst
 
 ## Using it
 
-1. Type the server's hostname or IP in **Host/IP**, and the port in **Port** (default SFTP/SSH is 22). You can also paste `host:port` into the host box and it splits automatically.
+1. Type the server's hostname, IPv4 address, or IPv6 address in **Host/IP**, and the port in **Port** (default SFTP/SSH is 22). You can also paste `host:port` into the host box and it splits automatically. For an IPv6 address with a port, use the bracketed form, `[address]:port` (for example `[2001:db8::1]:22`); a bare IPv6 address on its own is fine too.
 2. Click **Run Audit** (or press Enter).
 3. Read the grade and summary at the top, then scroll for the security checklist, advisories, and per-category algorithm lists. Green is good, yellow is a warning, red is a failure.
 4. Click **Export Results** to save a plain-text report (SSAT_Export_date_time.txt) wherever you choose. **Clear** resets the view.
