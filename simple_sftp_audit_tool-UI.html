@@ -617,8 +617,16 @@ async function exportReport(){
 /* ---------- run ---------- */
 function parseHostPort(){
   let host = $("host").value.trim();
-  const m = host.match(/^(.+):(\d+)$/);
-  if(m){ host = m[1]; $("host").value = host; $("port").value = m[2]; }
+  const bracketed = host.match(/^\[(.+)\]:(\d+)$/);
+  if(bracketed){
+    host = "[" + bracketed[1] + "]";
+    $("host").value = host; $("port").value = bracketed[2];
+  } else if((host.match(/:/g) || []).length >= 2){
+    // Bare IPv6 address (two or more colons): leave it whole, don't split off a port.
+  } else {
+    const m = host.match(/^(.+):(\d+)$/);
+    if(m){ host = m[1]; $("host").value = host; $("port").value = m[2]; }
+  }
   return { host, port: $("port").value.trim() };
 }
 async function runAudit(){

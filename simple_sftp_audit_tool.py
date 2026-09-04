@@ -18,6 +18,7 @@ import ctypes
 from ctypes import wintypes
 import errno
 import io
+import ipaddress
 import os
 import re
 import socket
@@ -83,11 +84,67 @@ def _clean(line):
 # --------------------------------------------------------------------------- #
 # ssh-audit run + parse  (logic ported from the tested tkinter version)
 # --------------------------------------------------------------------------- #
-def _run_ssh_audit(host, port, rate_test=False):
+_HOSTNAME_LABEL = re.compile(r"^[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?$")
+
+
+def validate_target(host, port):
+    """Validate a scan target before it is handed to the embedded ssh-audit CLI.
+
+    Returns {"ok": True, "host": <clean host>, "port": <int>, "family": "ipv4"|"ipv6"|"host"}
+    or {"ok": False, "error": <message>}.
+    """
+    host = (host or "").strip()
+    if not host:
+        return {"ok": False, "error": "Please enter a hostname or IP address."}
+
+    port_str = str(port).strip()
+    if not port_str.isdigit():
+        return {"ok": False, "error": "Port must be a number."}
+    port_int = int(port_str)
+    if not (1 <= port_int <= 65535):
+        return {"ok": False, "error": "Port must be between 1 and 65535."}
+
+    # A leading dash would be read as a command-line option by the embedded CLI.
+    if host.startswith("-"):
+        return {"ok": False, "error": "Host cannot start with a dash."}
+
+    # IPv6, bracketed ([2001:db8::1]) or bare (2001:db8::1).
+    candidate = host
+    if candidate.startswith("[") and candidate.endswith("]"):
+        candidate = candidate[1:-1]
+    if ":" in candidate:
+        try:
+            addr = ipaddress.ip_address(candidate)
+        except ValueError:
+            return {"ok": False, "error": "That does not look like a valid hostname or IP address."}
+        if addr.version == 6:
+            return {"ok": True, "host": str(addr), "port": port_int, "family": "ipv6"}
+        return {"ok": False, "error": "That does not look like a valid hostname or IP address."}
+
+    # IPv4.
+    try:
+        addr = ipaddress.ip_address(host)
+    except ValueError:
+        addr = None
+    if addr is not None and addr.version == 4:
+        return {"ok": True, "host": host, "port": port_int, "family": "ipv4"}
+
+    # Hostname.
+    if len(host) <= 253 and all(_HOSTNAME_LABEL.match(label) for label in host.split(".")):
+        return {"ok": True, "host": host, "port": port_int, "family": "host"}
+
+    return {"ok": False, "error": "That does not look like a valid hostname or IP address."}
+
+
+def _run_ssh_audit(host, port, rate_test=False, family="host"):
     """Run ssh-audit in-process; return its raw text output (or '')."""
     from ssh_audit.ssh_audit import main as audit_main
 
-    args = ["ssh-audit", "-j", "-4", "-t", "10", "-p", str(port)]
+    args = ["ssh-audit", "-j", "-t", "10", "-p", str(port)]
+    if family == "ipv4":
+        args.append("-4")
+    elif family == "ipv6":
+        args.append("-6")
     if not rate_test:
         args.append("--skip-rate-test")
     args.append(host)
@@ -817,21 +874,20 @@ class Api:
 
     def run_audit(self, host, port, rate_test=False):
         """Called from the page. Returns a parsed result dict (or an error)."""
-        host = (host or "").strip()
-        try:
-            port = int(str(port).strip())
-        except (TypeError, ValueError):
-            return {"ok": False, "error": "Port must be a number."}
-        if not host:
-            return {"ok": False, "error": "Please enter a hostname or IP address."}
+        validated = validate_target(host, port)
+        if not validated["ok"]:
+            return {"ok": False, "error": validated["error"]}
+        host = validated["host"]
+        port = validated["port"]
+        family = validated["family"]
 
         rate_test = bool(rate_test)
-        debug.log("AUDIT", {"host": host, "port": port, "rate_test": rate_test})
+        debug.log("AUDIT", {"host": host, "port": port, "family": family, "rate_test": rate_test})
 
         # Run the ssh-audit engine and capture its output.
         engine_error = False
         try:
-            output = _run_ssh_audit(host, port, rate_test)
+            output = _run_ssh_audit(host, port, rate_test, family)
         except ImportError as e:
             return {"ok": False, "error": "ssh-audit library not found: %s" % e}
         except Exception:
