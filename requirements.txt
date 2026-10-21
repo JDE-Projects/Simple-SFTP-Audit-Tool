@@ -9,7 +9,7 @@ pyinstaller==6.22.2
 # list bundled with Python, so antivirus and network filters that inspect HTTPS
 # do not break the GitHub update check. Needs --hidden-import truststore in the
 # build (see sxt-build-ship).
-truststore==0.10.4
+truststore==0.10.5
 
 # ssh-audit is installed from PyPI now that upstream releases there again
 # (current since v3.9.0, 2026-07-04). Dependabot opens review-PRs for it like
